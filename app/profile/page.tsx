@@ -1,4 +1,5 @@
-import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getCurrentUser, hasName } from "@/lib/auth";
 import { updateProfile } from "@/app/actions";
 import { Avatar } from "@/components/avatar";
 import { DeleteAccount } from "@/components/delete-account";
@@ -8,6 +9,7 @@ import { SignInGate } from "@/components/sign-in-gate";
 
 export default async function ProfilePage() {
   const { user, profile } = await getCurrentUser();
+  if (user && !hasName(profile)) redirect("/onboarding");
 
   return (
     <main className="flex-1 max-w-md w-full mx-auto px-6 py-16 flex flex-col gap-10">

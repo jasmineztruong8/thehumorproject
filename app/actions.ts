@@ -21,6 +21,18 @@ async function requireUser() {
   return { supabase, user };
 }
 
+// Like requireUser, but also sends users who skipped onboarding back to it.
+async function requireNamedUser() {
+  const { supabase, user } = await requireUser();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("first_name, last_name")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.first_name || !profile?.last_name) redirect("/onboarding");
+  return { supabase, user };
+}
+
 function readName(formData: FormData) {
   const firstName = String(formData.get("first_name") ?? "").trim();
   const lastName = String(formData.get("last_name") ?? "").trim();
@@ -112,7 +124,7 @@ export async function submitJoke(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const { supabase, user } = await requireUser();
+  const { supabase, user } = await requireNamedUser();
 
   const content = String(formData.get("content") ?? "").trim();
   if (!content) return { error: "Your joke is empty." };
@@ -128,10 +140,28 @@ export async function submitJoke(
   redirect("/");
 }
 
+// Deletes one of the signed-in user's own jokes (its votes go with it).
+// Matching on user_id too means nobody can delete someone else's joke.
+export async function deleteJoke(jokeId: string): Promise<FormState> {
+  const { supabase, user } = await requireNamedUser();
+
+  const { data, error } = await supabase
+    .from("jokes")
+    .delete()
+    .eq("id", jokeId)
+    .eq("user_id", user.id)
+    .select("id");
+
+  if (error || !data?.length) {
+    return { error: "Couldn't delete that joke." };
+  }
+  refresh();
+}
+
 // Upvote (1) or downvote (-1). Clicking the same arrow again removes the vote.
 // The joke's score is updated by a database trigger on the votes table.
 export async function vote(jokeId: string, value: 1 | -1): Promise<FormState> {
-  const { supabase, user } = await requireUser();
+  const { supabase, user } = await requireNamedUser();
   if (value !== 1 && value !== -1) return { error: "Invalid vote." };
 
   const { data: existing } = await supabase

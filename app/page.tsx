@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hasName } from "@/lib/auth";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { VoteButtons } from "@/components/vote-buttons";
+import { DeleteJokeButton } from "@/components/delete-joke-button";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,7 @@ type Joke = {
   content: string;
   votes: number;
   created_at: string;
+  user_id: string | null;
   profiles: { first_name: string | null; last_name: string | null } | null;
 };
 
@@ -21,11 +24,12 @@ function authorName(author: Joke["profiles"]) {
 
 export default async function Home() {
   const supabase = await createClient();
-  const { user } = await getCurrentUser();
+  const { user, profile } = await getCurrentUser();
+  if (user && !hasName(profile)) redirect("/onboarding");
 
   const { data: jokes, error } = await supabase
     .from("jokes")
-    .select("id, content, votes, created_at, profiles!jokes_user_id_fkey(first_name, last_name)")
+    .select("id, content, votes, created_at, user_id, profiles!jokes_user_id_fkey(first_name, last_name)")
     .order("votes", { ascending: false })
     .order("created_at", { ascending: false })
     .returns<Joke[]>();
@@ -43,14 +47,14 @@ export default async function Home() {
   return (
     <main className="flex-1 max-w-2xl w-full mx-auto px-6 py-16">
       {user ? (
-        <div className="mb-10 flex items-end justify-between gap-4">
+        <div className="mb-10 flex items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold mb-2">The Humor Project</h1>
             <p className="text-neutral-500">Jokes, ranked by votes.</p>
           </div>
           <Link
             href="/submit"
-            className="shrink-0 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 px-4 py-2 text-sm font-medium"
+            className="shrink-0 self-center inline-flex h-10 items-center whitespace-nowrap rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 px-4 text-sm font-medium"
           >
             + Submit a joke
           </Link>
@@ -82,13 +86,18 @@ export default async function Home() {
               myVote={myVotes.get(joke.id) ?? null}
               signedIn={Boolean(user)}
             />
-            <div>
+            <div className="flex-1">
               <p className="text-lg">{joke.content}</p>
-              {authorName(joke.profiles) && (
-                <p className="text-sm text-neutral-500 mt-1">
-                  — {authorName(joke.profiles)}
-                </p>
-              )}
+              <div className="mt-1 flex items-center gap-3">
+                {authorName(joke.profiles) && (
+                  <p className="text-sm text-neutral-500">
+                    — {authorName(joke.profiles)}
+                  </p>
+                )}
+                {user && joke.user_id === user.id && (
+                  <DeleteJokeButton jokeId={joke.id} />
+                )}
+              </div>
             </div>
           </li>
         ))}
