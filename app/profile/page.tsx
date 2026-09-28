@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { updateProfile } from "@/app/actions";
 import { Avatar } from "@/components/avatar";
+import { DeleteAccount } from "@/components/delete-account";
 import { NameForm } from "@/components/name-form";
 import { PhotoUpload } from "@/components/photo-upload";
 import { SignInGate } from "@/components/sign-in-gate";
@@ -49,6 +50,8 @@ export default async function ProfilePage() {
               submitLabel="Save changes"
             />
           </section>
+
+          <DeleteAccount />
         </>
       )}
     </main>

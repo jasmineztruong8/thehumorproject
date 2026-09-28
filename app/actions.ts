@@ -128,6 +128,29 @@ export async function submitJoke(
   redirect("/");
 }
 
+// Permanently deletes the signed-in user's account. Their profile row goes
+// with it (cascade); their jokes stay on the site without an author.
+export async function deleteAccount(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const { supabase, user } = await requireUser();
+
+  if (formData.get("confirm") !== "DELETE") {
+    return { error: 'Type DELETE to confirm.' };
+  }
+
+  // Remove the photo file first; once the user is gone they can't touch Storage.
+  await supabase.storage.from("avatars").remove([`${user.id}/profile`]);
+
+  const { error } = await supabase.rpc("delete_my_account");
+  if (error) return { error: "Couldn't delete your account. Please try again." };
+
+  // The session no longer exists on the server, so just clear local cookies.
+  await supabase.auth.signOut({ scope: "local" });
+  redirect("/");
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
