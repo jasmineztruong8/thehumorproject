@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser, hasName } from "@/lib/auth";
 import { signOut } from "@/app/actions";
 import { Avatar } from "@/components/avatar";
+import { MembersOnlyButton } from "@/components/members-only-button";
 import { ProfileNudge } from "@/components/profile-nudge";
 
 export async function SiteHeader() {
@@ -14,11 +15,11 @@ export async function SiteHeader() {
           The Humor Project
         </Link>
         <div className="flex items-center gap-4 text-sm">
-          <Link href="/submit" className="underline underline-offset-4">
-            Submit
-          </Link>
           {user ? (
             <>
+              <Link href="/submit" className="underline underline-offset-4">
+                Submit
+              </Link>
               <Link href="/profile" className="flex items-center gap-2">
                 <Avatar
                   url={profile?.profile_photo_url ?? null}
@@ -35,9 +36,17 @@ export async function SiteHeader() {
               </form>
             </>
           ) : (
-            <Link href="/login" className="underline underline-offset-4">
-              Sign in
-            </Link>
+            <>
+              <MembersOnlyButton
+                label="Submit (members only)"
+                className="flex items-center gap-1 text-neutral-400 dark:text-neutral-600 cursor-pointer"
+              >
+                <span aria-hidden>🔒</span> Submit
+              </MembersOnlyButton>
+              <Link href="/login" className="underline underline-offset-4">
+                Sign in
+              </Link>
+            </>
           )}
         </div>
       </nav>

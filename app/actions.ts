@@ -128,6 +128,37 @@ export async function submitJoke(
   redirect("/");
 }
 
+// Upvote (1) or downvote (-1). Clicking the same arrow again removes the vote.
+// The joke's score is updated by a database trigger on the votes table.
+export async function vote(jokeId: string, value: 1 | -1): Promise<FormState> {
+  const { supabase, user } = await requireUser();
+  if (value !== 1 && value !== -1) return { error: "Invalid vote." };
+
+  const { data: existing } = await supabase
+    .from("votes")
+    .select("value")
+    .eq("user_id", user.id)
+    .eq("joke_id", jokeId)
+    .maybeSingle();
+
+  const { error } =
+    existing?.value === value
+      ? await supabase
+          .from("votes")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("joke_id", jokeId)
+      : await supabase
+          .from("votes")
+          .upsert(
+            { user_id: user.id, joke_id: jokeId, value },
+            { onConflict: "user_id,joke_id" },
+          );
+
+  if (error) return { error: "Couldn't save your vote. Please try again." };
+  refresh();
+}
+
 // Permanently deletes the signed-in user's account. Their profile row goes
 // with it (cascade); their jokes stay on the site without an author.
 export async function deleteAccount(
