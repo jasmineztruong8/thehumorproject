@@ -40,6 +40,7 @@ export default async function MemesPage({ searchParams }: PageProps<"/memes">) {
   const { data: templates, error } = await query
     .order("created_at", { ascending: false })
     .returns<Template[]>();
+  if (error) console.error("Loading memes failed", error);
 
   return (
     <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-12">
@@ -73,7 +74,7 @@ export default async function MemesPage({ searchParams }: PageProps<"/memes">) {
           </Link>
         ))}
       </nav>
-      {error && <p className="text-red-500">Failed to load memes: {error.message}</p>}
+      {error && <p className="text-red-500">The memes didn&apos;t load. Please refresh the page.</p>}
       {templates?.length === 0 && <p className="text-neutral-500">No templates yet.</p>}
       <ul className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {templates?.map((t) => (

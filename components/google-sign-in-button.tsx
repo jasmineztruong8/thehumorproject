@@ -18,7 +18,8 @@ export function GoogleSignInButton() {
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
     if (error) {
-      setError(error.message);
+      console.error("Google sign-in failed", error);
+      setError("Couldn't start Google sign-in. Please try again.");
       setPending(false);
     }
   }

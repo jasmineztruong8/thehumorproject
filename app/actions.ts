@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AiUnavailableError, describeImage, writeCaption } from "@/lib/gemini";
 import { cleanSteer } from "@/lib/prompts";
+import { readDraft, signDraft, type CaptionDraft, type DraftCaption, type UploadDraft } from "@/lib/drafts";
 import { addToLibrary } from "@/lib/library";
 import { getMemeTemplate, searchMemeTemplates, type MemeTemplate } from "@/lib/memegen";
 import { MEME_LIBRARY_ENABLED } from "@/lib/features";
@@ -127,6 +128,7 @@ export async function removeProfilePhoto(): Promise<FormState> {
 const MAX_UPLOADS_PER_HOUR = 10;
 const MAX_CAPTIONS_PER_HOUR = 20;
 const MAX_LIBRARY_ADDS_PER_HOUR = 10;
+const MAX_SUGGESTIONS_PER_DRAFT = 8;
 const UPLOAD_PATH = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|gif)$/;
 
 function hourAgo() {
@@ -150,86 +152,69 @@ async function checkCaptionLimit(supabase: Supabase, userId: string): Promise<Fo
 
 function aiErrorMessage(e: unknown) {
   console.error("Gemini call failed", e);
-  if (e instanceof AiUnavailableError && e.reason === "quota") {
-    return "The AI has used up its free requests for today. Please try again tomorrow.";
+  if (e instanceof AiUnavailableError) {
+    return e.reason === "quota"
+      ? "The AI has used up its free requests for today. Please try again tomorrow."
+      : "The AI is busy right now. Please try again in a moment.";
   }
-  return "The AI is busy right now. Please try again in a moment.";
+  return "Something went wrong with the AI. Please try again.";
 }
 
-async function tryWriteCaption(
-  description: string,
-  steer: string | null,
-): Promise<{ content: string; prompt: string; model: string } | { error: string }> {
-  try {
-    return await writeCaption(description, steer);
-  } catch (e) {
-    return { error: aiErrorMessage(e) };
-  }
-}
-
-function captionRow(
-  imageId: string,
-  userId: string,
-  steer: string | null,
-  caption: { content: string; prompt: string; model: string },
-) {
+function captionRow(imageId: string, userId: string, caption: DraftCaption) {
   return {
     image_id: imageId,
     user_id: userId,
     content: caption.content,
-    user_prompt: steer,
+    user_prompt: caption.steer,
     prompt: caption.prompt,
     model: caption.model,
   };
 }
 
-// Captions are generated from the image's saved description, so this is a
-// cheap text-only call. Several users can caption the same image.
-async function addCaption(
-  supabase: Supabase,
-  userId: string,
-  image: { id: string; description: string },
-  steer: string | null,
-): Promise<FormState> {
-  const limited = await checkCaptionLimit(supabase, userId);
-  if (limited) return limited;
-
-  const caption = await tryWriteCaption(image.description, steer);
-  if ("error" in caption) return caption;
-
-  const { error } = await supabase.from("captions").insert(captionRow(image.id, userId, steer, caption));
-  if (error) return { error: "Couldn't save your caption. Please try again." };
+// Asks the AI for a caption suggestion. Nothing is saved.
+async function suggest(
+  description: string,
+  rawSteer: unknown,
+  suggestionsSoFar: number,
+): Promise<{ caption: DraftCaption } | { error: string }> {
+  if (suggestionsSoFar >= MAX_SUGGESTIONS_PER_DRAFT) {
+    return { error: "That's a lot of tries! Post one you like or start over." };
+  }
+  const steer = cleanSteer(rawSteer);
+  try {
+    const caption = await writeCaption(description, steer);
+    return { caption: { ...caption, steer } };
+  } catch (e) {
+    return { error: aiErrorMessage(e) };
+  }
 }
 
-// The photo is uploaded from the browser straight to Storage
-// (images/<user id>/<random id>.jpg or .gif). This asks the AI for both the
-// description and the first caption *before* saving anything, so a photo is
-// only ever saved together with its caption. On any failure the uploaded
-// file is removed. (If the user leaves the page meanwhile, the server still
-// finishes, so the photo appears complete in the feed.)
-export async function createImage(storagePath: string): Promise<FormState> {
+export type DraftResult = { token?: string; caption?: string; description?: string; error?: string };
+
+// Upload step 1. The photo is already in Storage (uploaded from the browser
+// to images/<user id>/<random id>.jpg or .gif). The AI describes it, and the
+// result comes back as a signed draft. Nothing is posted yet.
+export async function startUpload(storagePath: string): Promise<DraftResult> {
   const { supabase, user } = await requireNamedUser();
 
   if (!UPLOAD_PATH.test(storagePath) || !storagePath.startsWith(`${user.id}/`)) {
     return { error: "Invalid upload." };
   }
-
-  const removeUpload = () => supabase.storage.from("images").remove([storagePath]);
-  const fail = async (error: string): Promise<FormState> => {
-    await removeUpload();
+  const fail = async (error: string) => {
+    await supabase.storage.from("images").remove([storagePath]);
     return { error };
   };
 
-  const { count } = await supabase
+  // Counts files (including drafts that were never posted), since each one
+  // cost an AI call.
+  const { data: recent } = await supabase.storage
     .from("images")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .gte("created_at", hourAgo());
-  if ((count ?? 0) >= MAX_UPLOADS_PER_HOUR) {
+    .list(user.id, { limit: 100, sortBy: { column: "created_at", order: "desc" } });
+  const since = Date.now() - 60 * 60 * 1000;
+  const uploadsThisHour = (recent ?? []).filter((f) => f.created_at && Date.parse(f.created_at) > since).length;
+  if (uploadsThisHour > MAX_UPLOADS_PER_HOUR) {
     return fail("You've hit the upload limit for this hour. Come back soon!");
   }
-  const limited = await checkCaptionLimit(supabase, user.id);
-  if (limited?.error) return fail(limited.error);
 
   const { data: file, error: downloadError } = await supabase.storage
     .from("images")
@@ -246,54 +231,133 @@ export async function createImage(storagePath: string): Promise<FormState> {
     return fail(aiErrorMessage(e));
   }
 
-  const caption = await tryWriteCaption(described.description, null);
-  if ("error" in caption) return fail(caption.error);
+  const draft: UploadDraft = {
+    kind: "upload",
+    userId: user.id,
+    storagePath,
+    description: described.description,
+    descriptionPrompt: described.prompt,
+    descriptionModel: described.model,
+    animated: described.animated,
+    caption: null,
+    suggestions: 0,
+    issuedAt: Date.now(),
+  };
+  return { token: signDraft(draft), description: draft.description };
+}
+
+// Upload step 2 (repeatable): suggest a caption, optionally about a topic.
+export async function suggestUploadCaption(token: string, steer: string): Promise<DraftResult> {
+  const { user } = await requireNamedUser();
+  const draft = readDraft(token, "upload", user.id);
+  if (!draft) return { error: "This draft expired. Please upload the photo again." };
+
+  const result = await suggest(draft.description, steer, draft.suggestions);
+  if ("error" in result) return result;
+
+  const next: UploadDraft = { ...draft, caption: result.caption, suggestions: draft.suggestions + 1 };
+  return { token: signDraft(next), caption: result.caption.content };
+}
+
+// Upload step 3: the user approved the photo and caption, so post both.
+// Returns the new image's id; the browser then opens its page.
+export async function publishUpload(token: string): Promise<{ imageId?: string; error?: string }> {
+  const { supabase, user } = await requireNamedUser();
+  const draft = readDraft(token, "upload", user.id);
+  if (!draft) return { error: "This draft expired. Please upload the photo again." };
+  if (!draft.caption) return { error: "Generate a caption first." };
+
+  const limited = await checkCaptionLimit(supabase, user.id);
+  if (limited) return limited;
 
   const { data: image, error } = await supabase
     .from("images")
     .insert({
       user_id: user.id,
       source: "upload",
-      storage_path: storagePath,
-      image_url: supabase.storage.from("images").getPublicUrl(storagePath).data.publicUrl,
-      description: described.description,
-      description_prompt: described.prompt,
-      description_model: described.model,
-      is_animated: described.animated,
+      storage_path: draft.storagePath,
+      image_url: supabase.storage.from("images").getPublicUrl(draft.storagePath).data.publicUrl,
+      description: draft.description,
+      description_prompt: draft.descriptionPrompt,
+      description_model: draft.descriptionModel,
+      is_animated: draft.animated,
     })
     .select("id")
     .single();
-  if (error || !image) return fail("Couldn't save your photo. Please try again.");
+  if (error || !image) {
+    // Already posted (e.g. a double click) — just open it
+    const { data: existing } = await supabase
+      .from("images")
+      .select("id")
+      .eq("storage_path", draft.storagePath)
+      .maybeSingle();
+    if (existing) return { imageId: existing.id };
+    return { error: "Couldn't post your photo. Please try again." };
+  }
 
   const { error: captionError } = await supabase
     .from("captions")
-    .insert(captionRow(image.id, user.id, null, caption));
+    .insert(captionRow(image.id, user.id, draft.caption));
   if (captionError) {
     await supabase.from("images").delete().eq("id", image.id);
-    return fail("Couldn't save your photo. Please try again.");
+    return { error: "Couldn't post your photo. Please try again." };
   }
 
-  redirect(`/images/${image.id}`);
+  return { imageId: image.id };
 }
 
-export async function generateCaption(
-  _prev: FormState,
-  formData: FormData,
-): Promise<FormState> {
+// The user threw the draft away: remove the uploaded file.
+export async function discardUpload(token: string): Promise<void> {
   const { supabase, user } = await requireNamedUser();
-  const steer = cleanSteer(formData.get("steer"));
+  const draft = readDraft(token, "upload", user.id);
+  if (draft) await supabase.storage.from("images").remove([draft.storagePath]);
+}
+
+// On an image's page: suggest a caption (repeatable). Nothing is saved.
+// Pass the previous draft token to keep count of tries.
+export async function suggestCaption(
+  imageId: string,
+  steer: string,
+  previousToken: string | null,
+): Promise<DraftResult> {
+  const { supabase, user } = await requireNamedUser();
+  const previous = readDraft(previousToken, "caption", user.id);
+  const suggestions = previous?.imageId === imageId ? previous.suggestions : 0;
 
   const { data: image } = await supabase
     .from("images")
     .select("id, description")
-    .eq("id", String(formData.get("image_id")))
+    .eq("id", imageId)
     .maybeSingle();
   if (!image) return { error: "That image doesn't exist anymore." };
 
-  const result = await addCaption(supabase, user.id, image, steer);
-  if (result?.error) return result;
+  const result = await suggest(image.description, steer, suggestions);
+  if ("error" in result) return result;
+
+  const draft: CaptionDraft = {
+    kind: "caption",
+    userId: user.id,
+    imageId,
+    caption: result.caption,
+    suggestions: suggestions + 1,
+    issuedAt: Date.now(),
+  };
+  return { token: signDraft(draft), caption: result.caption.content };
+}
+
+// On an image's page: post the suggested caption the user approved.
+export async function postCaption(token: string): Promise<FormState> {
+  const { supabase, user } = await requireNamedUser();
+  const draft = readDraft(token, "caption", user.id);
+  if (!draft) return { error: "This caption expired. Please generate a new one." };
+
+  const limited = await checkCaptionLimit(supabase, user.id);
+  if (limited) return limited;
+
+  const { error } = await supabase.from("captions").insert(captionRow(draft.imageId, user.id, draft.caption));
+  if (error) return { error: "Couldn't post your caption. Please try again." };
   refresh();
-  return { message: "Fresh caption added!" };
+  return { message: "Posted!" };
 }
 
 // RLS lets owners (and superadmins) delete; everyone else deletes 0 rows.
@@ -311,8 +375,9 @@ export async function deleteCaption(captionId: string): Promise<FormState> {
 }
 
 // Deletes the image row (its captions and votes cascade), then the file.
-// RLS: uploads by their owner, anything by a superadmin.
-export async function deleteImage(imageId: string): Promise<FormState> {
+// RLS: uploads by their owner, anything by a superadmin. From the image's own
+// page, leave it (it no longer exists); from a list like the feed, stay put.
+export async function deleteImage(imageId: string, stayOnPage = false): Promise<FormState> {
   const { supabase } = await requireNamedUser();
 
   const { data, error } = await supabase
@@ -323,6 +388,10 @@ export async function deleteImage(imageId: string): Promise<FormState> {
 
   if (error || !data?.length) return { error: "Couldn't delete that image." };
   await supabase.storage.from("images").remove([data[0].storage_path]);
+  if (stayOnPage) {
+    refresh();
+    return;
+  }
   redirect(data[0].source === "library" ? "/memes" : "/my");
 }
 

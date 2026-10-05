@@ -29,11 +29,12 @@ export default async function AdminPage() {
     .select("id, first_name, last_name, is_superadmin, created_at, images!images_user_id_fkey(count), captions!captions_user_id_fkey(count)")
     .order("created_at", { ascending: false })
     .returns<Row[]>();
+  if (error) console.error("Loading users failed", error);
 
   return (
     <main className="flex-1 max-w-2xl w-full mx-auto px-4 sm:px-6 py-12 flex flex-col gap-6">
       <h1 className="text-3xl font-bold">Users</h1>
-      {error && <p className="text-red-500">Failed to load users: {error.message}</p>}
+      {error && <p className="text-red-500">The user list didn&apos;t load. Please refresh the page.</p>}
       <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
         {users?.map((u) => (
           <li key={u.id} className="py-3 flex items-center justify-between gap-4">

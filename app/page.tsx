@@ -7,6 +7,8 @@ import { createAuthorLabeler, type Author } from "@/lib/display-name";
 import { MEME_LIBRARY_ENABLED } from "@/lib/features";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { CaptionItem } from "@/components/caption-item";
+import { DeleteButton } from "@/components/delete-button";
+import { deleteImage } from "@/app/actions";
 import { StoredImage } from "@/components/stored-image";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +79,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   ];
   const myVotes = await getMyVotes(supabase, user?.id, shownCaptions.map((c) => c.id));
   const error = imagesError ?? captionsError;
+  if (error) console.error("Loading the feed failed", error);
 
   const tab = (value: string, text: string) => (
     <Link
@@ -123,7 +126,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         {tab("top", "Top captions")}
       </nav>
 
-      {error && <p className="text-red-500">Failed to load the feed: {error.message}</p>}
+      {error && <p className="text-red-500">The feed didn&apos;t load. Please refresh the page.</p>}
 
       {sort === "new" && (
         <ul className="flex flex-col gap-6">
@@ -157,8 +160,17 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   ) : (
                     <p className="text-neutral-500">No captions yet.</p>
                   )}
-                  <div className="flex justify-between text-sm text-neutral-500">
-                    <span>Uploaded by {label(image.user_id, image.profiles)}</span>
+                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-neutral-500">
+                    <span className="flex items-center gap-3">
+                      Uploaded by {label(image.user_id, image.profiles)}
+                      {image.user_id && canDelete(image.user_id) && (
+                        <DeleteButton
+                          action={deleteImage.bind(null, image.id, true)}
+                          confirmText={`Delete this photo and ${count === 1 ? "its caption" : count > 1 ? `all ${count} captions` : "it"}?`}
+                          label="Delete photo"
+                        />
+                      )}
+                    </span>
                     <Link href={`/images/${image.id}`} className="underline underline-offset-4">
                       {count > 1 ? `See all ${count} captions` : "Add a caption"} →
                     </Link>

@@ -22,7 +22,7 @@ vi.mock("@google/genai", () => ({
   },
 }));
 
-const { AiUnavailableError, describeImage, writeCaption } = await import("@/lib/gemini");
+const { AiUnavailableError, describeImage, resetModelState, writeCaption } = await import("@/lib/gemini");
 
 function apiError(status: number) {
   return Object.assign(new Error(`HTTP ${status}`), { status });
@@ -31,6 +31,7 @@ function apiError(status: number) {
 const FAKE_CAPTION = `fake caption ${Math.random().toString(36).slice(2)}`;
 
 beforeEach(() => {
+  resetModelState();
   calls.length = 0;
   respond = () => ({ text: FAKE_CAPTION });
   vi.stubEnv("GEMINI_API_KEY", "test-key");
@@ -80,6 +81,25 @@ describe("model fallback", () => {
     respond = () => apiError(429);
     await expect(writeCaption("A cat.", null)).rejects.toMatchObject({ reason: "quota" });
     await expect(writeCaption("A cat.", null)).rejects.toBeInstanceOf(AiUnavailableError);
+  });
+
+  it("remembers models that are out of quota and skips them next time", async () => {
+    respond = (call) => (call.model === calls[0].model ? apiError(429) : { text: "ok" });
+    await writeCaption("A cat.", null);
+    const outOfQuota = calls[0].model;
+    calls.length = 0;
+    await writeCaption("A cat.", null);
+    expect(calls.map((c) => c.model)).not.toContain(outOfQuota);
+  });
+
+  it("treats a slow model like a busy one and moves on", async () => {
+    respond = () => (calls.length === 1 ? new Error("The operation was aborted due to timeout") : { text: "next model" });
+    expect((await writeCaption("A cat.", null)).content).toBe("next model");
+  });
+
+  it("gives every call a timeout", async () => {
+    await writeCaption("A cat.", null);
+    expect((calls[0].config as { httpOptions?: { timeout?: number } }).httpOptions?.timeout).toBeGreaterThan(0);
   });
 
   it("reports busy when models stay overloaded", async () => {

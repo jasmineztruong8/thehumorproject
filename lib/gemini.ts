@@ -32,38 +32,74 @@ export class AiUnavailableError extends Error {
 
 type Request = Omit<Parameters<GoogleGenAI["models"]["generateContent"]>[0], "model">;
 
+// Vercel stops a request after 60s; leave ~10s for the rest of the request.
+const TIME_BUDGET_MS = 50_000;
+const CALL_TIMEOUT_MS = 30_000; // a normal answer takes 2-8s
+const QUOTA_SKIP_MS = 60 * 60 * 1000;
+
+// Models that said "out of free requests", so later requests on this server
+// skip them for a while instead of asking again.
+const outOfQuotaUntil = new Map<string, number>();
+
 async function generate(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
   const ai = new GoogleGenAI({ apiKey });
+  const deadline = Date.now() + TIME_BUDGET_MS;
 
-  // Go through every model; models that were only overloaded get one more
-  // try after a short pause. Out-of-quota or retired models are skipped.
+  // Go through the models; overloaded or slow ones get one more try after a
+  // short pause, as long as there's time left. Out-of-quota or retired
+  // models are skipped.
   const overloaded: string[] = [];
+  let sawQuota = false;
   const attempt = async (model: string) => {
+    const remaining = deadline - Date.now();
+    if (remaining < 2_000) return null;
+    const started = Date.now();
     try {
-      const response = await ai.models.generateContent({ ...request, model });
+      const response = await ai.models.generateContent({
+        ...request,
+        model,
+        config: { ...request.config, httpOptions: { timeout: Math.min(CALL_TIMEOUT_MS, remaining) } },
+      });
+      console.info(`[gemini] ${model} answered in ${Date.now() - started}ms`);
       return { response, model: response.modelVersion ?? model };
     } catch (e) {
       const status = (e as { status?: number }).status ?? 0;
-      if (status >= 500) overloaded.push(model);
-      else if (status !== 429 && status !== 404) throw e;
+      const message = String((e as Error).message ?? e);
+      const timedOut = !status && /abort|timeout|timed out/i.test(message);
+      console.warn(`[gemini] ${model} failed after ${Date.now() - started}ms: ${status || "no status"} ${message.slice(0, 200)}`);
+      if (status === 429) {
+        sawQuota = true;
+        outOfQuotaUntil.set(model, Date.now() + QUOTA_SKIP_MS);
+      } else if (status >= 500 || timedOut) {
+        overloaded.push(model);
+      } else if (status !== 404) {
+        throw e;
+      }
       return null;
     }
   };
 
-  for (const model of MODELS) {
+  const available = MODELS.filter((m) => (outOfQuotaUntil.get(m) ?? 0) < Date.now());
+  for (const model of available) {
     const result = await attempt(model);
     if (result) return result;
   }
-  if (!overloaded.length) throw new AiUnavailableError("quota");
+  if (overloaded.length && deadline - Date.now() > 4_000) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    for (const model of overloaded.splice(0)) {
+      const result = await attempt(model);
+      if (result) return result;
+    }
+  }
+  const allOutOfQuota = !overloaded.length && (sawQuota || available.length === 0);
+  throw new AiUnavailableError(allOutOfQuota ? "quota" : "busy");
+}
 
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-  for (const model of overloaded.splice(0)) {
-    const result = await attempt(model);
-    if (result) return result;
-  }
-  throw new AiUnavailableError("busy");
+// For tests: forget which models were out of quota.
+export function resetModelState() {
+  outOfQuotaUntil.clear();
 }
 
 // Step 1: look at the image once and describe it. The description is saved

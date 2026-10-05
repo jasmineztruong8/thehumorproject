@@ -37,7 +37,8 @@ export function CaptionItem({
           {canDelete && (
             <DeleteButton
               action={deleteCaption.bind(null, caption.id)}
-              confirmText="Delete this caption? Its votes will be removed too."
+              confirmText="Delete this caption? Its votes will be removed too. The photo stays."
+              label="Delete caption"
             />
           )}
         </div>

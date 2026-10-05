@@ -68,7 +68,7 @@ export default async function ImagePage({ params }: PageProps<"/images/[id]">) {
             {(image.user_id === user?.id || admin) && (
               <DeleteButton
                 action={deleteImage.bind(null, image.id)}
-                confirmText={`Delete this ${image.source === "library" ? "template" : "photo"} and every caption on it?`}
+                confirmText={`Delete this ${image.source === "library" ? "template" : "photo"} and all ${image.captions.length} caption${image.captions.length === 1 ? "" : "s"} on it?`}
                 label="Delete photo"
               />
             )}
