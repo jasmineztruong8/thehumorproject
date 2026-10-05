@@ -11,8 +11,8 @@ export function DeleteAccount() {
     <section className="rounded-xl border border-red-300 dark:border-red-900 p-5 flex flex-col gap-3">
       <h2 className="font-semibold text-red-600 dark:text-red-400">Delete account</h2>
       <p className="text-sm text-neutral-500">
-        Permanently deletes your profile, photo and votes. Jokes you submitted
-        stay on the site without your name. This can&apos;t be undone.
+        Permanently deletes your profile, your photos, every caption you
+        generated and your votes. This can&apos;t be undone.
       </p>
       {open ? (
         <form action={formAction} className="flex flex-col gap-3">

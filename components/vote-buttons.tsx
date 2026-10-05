@@ -5,7 +5,7 @@ import { vote } from "@/app/actions";
 import { MembersOnlyButton } from "@/components/members-only-button";
 
 type Props = {
-  jokeId: string;
+  captionId: string;
   score: number;
   myVote: 1 | -1 | null;
   signedIn: boolean;
@@ -14,7 +14,7 @@ type Props = {
 const arrowClass =
   "w-8 h-8 rounded-full flex items-center justify-center text-sm transition-colors";
 
-export function VoteButtons({ jokeId, score, myVote, signedIn }: Props) {
+export function VoteButtons({ captionId, score, myVote, signedIn }: Props) {
   const [pending, startTransition] = useTransition();
   // Show the new vote immediately; the server result replaces it after refresh
   const [optimistic, setOptimistic] = useOptimistic({ score, myVote });
@@ -40,7 +40,7 @@ export function VoteButtons({ jokeId, score, myVote, signedIn }: Props) {
         myVote: next,
         score: optimistic.score - (optimistic.myVote ?? 0) + (next ?? 0),
       });
-      await vote(jokeId, value);
+      await vote(captionId, value);
     });
   }
 

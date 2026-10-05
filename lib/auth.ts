@@ -6,6 +6,7 @@ export type Profile = {
   first_name: string | null;
   last_name: string | null;
   profile_photo_url: string | null;
+  is_superadmin: boolean;
 };
 
 // The signed-in user (verified with Supabase via getUser(), not just read
@@ -20,7 +21,7 @@ export const getCurrentUser = cache(async () => {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, first_name, last_name, profile_photo_url")
+    .select("id, first_name, last_name, profile_photo_url, is_superadmin")
     .eq("id", user.id)
     .single<Profile>();
 
@@ -29,4 +30,8 @@ export const getCurrentUser = cache(async () => {
 
 export function hasName(profile: Profile | null) {
   return Boolean(profile?.first_name && profile?.last_name);
+}
+
+export function isSuperadmin(profile: Profile | null) {
+  return Boolean(profile?.is_superadmin);
 }

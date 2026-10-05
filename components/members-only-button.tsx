@@ -38,7 +38,7 @@ export function MembersOnlyButton({
           </span>
           <h2 className="text-xl font-semibold">Members only</h2>
           <p className="text-neutral-500">
-            Sign in to submit your own jokes and upvote or downvote your
+            Sign in to upload photos, generate AI captions and vote on your
             favorites.
           </p>
           <GoogleSignInButton />

@@ -4,30 +4,11 @@ import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { removeProfilePhoto, saveProfilePhoto } from "@/app/actions";
 import { dismissProfileNudge } from "@/components/profile-nudge";
+import { resizeImage } from "@/lib/image";
 
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024; // the bucket's limit
 const MAX_INPUT_BYTES = 25 * 1024 * 1024; // refuse huge files before decoding
 const MAX_DIMENSION = 512; // plenty for an avatar shown at 96px
-
-// Shrinks any photo to at most 512px on its longest side and re-encodes it as
-// JPEG, so full-size phone photos fit well under the bucket's 2 MB limit.
-async function resizeImage(file: File): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-
-  return new Promise((resolve, reject) =>
-    canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error("encode failed"))),
-      "image/jpeg",
-      0.85,
-    ),
-  );
-}
 
 // Uploads straight from the browser to Supabase Storage, then saves only the
 // URL in the profiles table. The file always goes to the same path, so a new
@@ -58,7 +39,7 @@ export function PhotoUpload({
     try {
       let image: Blob;
       try {
-        image = await resizeImage(file);
+        image = await resizeImage(file, MAX_DIMENSION);
       } catch {
         setError("Couldn't read that image. Try a JPEG or PNG.");
         return;

@@ -7,11 +7,16 @@ export default function PrivacyPage() {
       <p>
         The Humor Project is a class project. When you sign in with Google we
         receive your name, email address and Google account ID, and store them
-        with your profile so you can submit jokes.
+        with your profile so you can upload photos and caption them. Signed-out
+        visitors never see your name; they see a label like &ldquo;anon1&rdquo;.
       </p>
       <p>
-        If you upload a profile photo, it is stored in Supabase Storage and is
-        publicly viewable by URL. We don&apos;t sell or share your data.
+        Photos you upload (and your profile photo) are stored in Supabase
+        Storage and are publicly viewable by URL. To write captions, uploaded
+        photos are sent to Google Gemini, which describes them; the
+        description, the prompts and the captions are saved with the photo.
+        Deleting your account deletes all of it. We don&apos;t sell or share
+        your data.
       </p>
     </main>
   );
