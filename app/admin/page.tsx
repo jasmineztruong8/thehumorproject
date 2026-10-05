@@ -26,7 +26,7 @@ export default async function AdminPage() {
   const supabase = await createClient();
   const { data: users, error } = await supabase
     .from("profiles")
-    .select("id, first_name, last_name, is_superadmin, created_at, images(count), captions(count)")
+    .select("id, first_name, last_name, is_superadmin, created_at, images!images_user_id_fkey(count), captions!captions_user_id_fkey(count)")
     .order("created_at", { ascending: false })
     .returns<Row[]>();
 
