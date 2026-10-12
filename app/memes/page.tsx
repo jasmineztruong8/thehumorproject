@@ -55,7 +55,7 @@ export default async function MemesPage({ searchParams }: PageProps<"/memes">) {
           <LibrarySearch />
         ) : (
           <MembersOnlyButton className="w-full border-2 border-dashed border-line bg-card p-5 text-left text-dim">
-            <PixelIcon name="lock" size={14} className="inline mr-2 align-[-1px]" />Search hand-picked meme templates to caption
+            <PixelIcon name="lock" size={14} />Search hand-picked meme templates to caption
           </MembersOnlyButton>
         )}
       </div>

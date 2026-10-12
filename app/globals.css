@@ -191,6 +191,14 @@ h2 {
     text-decoration-color: var(--accent);
   }
 
+  /* Rule: an icon inside any link or button always keeps clear of the words
+     next to it. Icon-only buttons are unaffected (a gap needs two items). */
+  :is(a, button):has(> .pixel-icon) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+  }
+
   .stripe {
     height: 12px;
     background: var(--stripe);

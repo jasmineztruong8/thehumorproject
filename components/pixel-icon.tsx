@@ -178,7 +178,7 @@ export function PixelIcon({
       height={size}
       shapeRendering="crispEdges"
       aria-hidden
-      className={className}
+      className={`pixel-icon ${className ?? ""}`}
     >
       {rows.flatMap((row, y) =>
         [...row].map((pixel, x) =>
