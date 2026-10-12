@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { PixelIcon } from "@/components/pixel-icon";
 import { useRouter } from "next/navigation";
 import { discardUpload, publishUpload, startUpload, suggestUploadCaption } from "@/app/actions";
 import { AiLoading, CaptionDraft, safely } from "@/components/caption-draft";
@@ -149,16 +150,16 @@ export function UploadForm({ userId }: { userId: string }) {
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="rounded-2xl border-2 border-dashed border-neutral-300 dark:border-neutral-700 p-10 flex flex-col items-center gap-3 text-center"
+          className="border-2 border-dashed border-line bg-card p-10 flex flex-col items-center gap-3 text-center"
         >
-          <span className="text-4xl" aria-hidden>📸</span>
+          <PixelIcon name="camera" size={40} />
           <span className="font-medium">Choose a photo</span>
-          <span className="text-sm text-neutral-500">
+          <span className="text-sm text-dim">
             Your dorm, the subway, your roommate&apos;s cooking. Photos or GIFs (up to 5 MB).
             Nothing is posted until you approve a caption.
           </span>
         </button>
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
       </div>
     );
   }
@@ -172,17 +173,17 @@ export function UploadForm({ userId }: { userId: string }) {
   return (
     <div className="flex flex-col gap-6">
       {fileInput}
-      <section className="rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+      <section className="panel overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview */}
-        <img src={preview} alt={`Your ${thing}`} className="w-full max-h-[28rem] object-contain bg-neutral-100 dark:bg-neutral-900" />
+        <img src={preview} alt={`Your ${thing}`} className="w-full max-h-[28rem] object-contain bg-well" />
         <div className="p-4 text-sm">
           {description ? (
             <details>
-              <summary className="cursor-pointer text-neutral-500">What the AI sees</summary>
-              <p className="mt-2 text-neutral-500">{description}</p>
+              <summary className="cursor-pointer text-dim">What the AI sees</summary>
+              <p className="mt-2 text-dim">{description}</p>
             </details>
           ) : stage === "failed" ? (
-            <p className="text-neutral-500">The AI couldn&apos;t look at this one.</p>
+            <p className="text-dim">The AI couldn&apos;t look at this one.</p>
           ) : (
             <AiLoading label={describingLabel} lines={3} />
           )}
@@ -191,11 +192,11 @@ export function UploadForm({ userId }: { userId: string }) {
 
       {stage === "failed" ? (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-red-500">{error}</p>
+          <p className="text-sm text-danger">{error}</p>
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="self-start rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 px-5 py-2.5 font-medium"
+            className="self-start btn-primary px-5 py-2.5 font-medium"
           >
             Try again with a photo
           </button>
@@ -219,8 +220,9 @@ export function UploadForm({ userId }: { userId: string }) {
         type="button"
         onClick={onDiscard}
         disabled={posting}
-        className="self-start text-sm text-neutral-500 underline underline-offset-4 disabled:opacity-50"
+        className="self-start inline-flex items-center gap-1.5 text-sm text-dim hover:text-danger cursor-pointer disabled:opacity-50"
       >
+        <PixelIcon name="trash" size={14} />
         {stage === "failed" ? "Start over" : "Discard and start over"}
       </button>
     </div>

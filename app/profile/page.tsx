@@ -39,9 +39,9 @@ export default async function ProfilePage() {
                 value={user.email ?? ""}
                 readOnly
                 disabled
-                className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 px-3 py-2 text-neutral-500"
+                className="border border-line bg-well px-3 py-2 text-dim"
               />
-              <span className="text-xs text-neutral-500">
+              <span className="text-xs text-dim">
                 From your Google account.
               </span>
             </label>

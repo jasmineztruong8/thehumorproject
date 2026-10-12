@@ -4,37 +4,31 @@ import { MEME_LIBRARY_ENABLED } from "@/lib/features";
 import { signOut } from "@/app/actions";
 import { Avatar } from "@/components/avatar";
 import { MembersOnlyButton } from "@/components/members-only-button";
+import { NavLink } from "@/components/nav-link";
+import { PixelIcon, SunOrMoon } from "@/components/pixel-icon";
 import { ProfileNudge } from "@/components/profile-nudge";
 
 export async function SiteHeader() {
   const { user, profile } = await getCurrentUser();
 
   return (
-    <header className="border-b border-neutral-200 dark:border-neutral-800">
+    <header className="bg-card border-b-2 border-line">
       <nav className="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-        <Link href="/" className="font-bold">
-          The Humor Project
+        <Link href="/" aria-label="The Humor Project" className="flex items-center gap-2 font-pixel text-lg font-bold whitespace-nowrap">
+          <SunOrMoon size={28} />
+          <span className={user ? "hidden sm:inline" : undefined}>The Humor Project</span>
         </Link>
         <div className="flex items-center gap-3 sm:gap-4 text-sm">
-          {MEME_LIBRARY_ENABLED && (
-            <Link href="/memes" className="underline underline-offset-4">
-              Memes
-            </Link>
-          )}
           {user ? (
             <>
-              <Link href="/submit" className="underline underline-offset-4">
-                Upload
-              </Link>
-              <Link href="/my" className="underline underline-offset-4">
-                Mine
-              </Link>
+              <NavLink href="/submit" className="btn-primary px-3 py-1 text-sm">
+                <PixelIcon name="plus" size={12} /> Upload
+              </NavLink>
+              {MEME_LIBRARY_ENABLED && <NavLink href="/memes">Memes</NavLink>}
               {isSuperadmin(profile) && (
-                <Link href="/admin" className="underline underline-offset-4">
-                  Admin
-                </Link>
+                <NavLink href="/admin">Admin</NavLink>
               )}
-              <Link href="/profile" className="flex items-center gap-2">
+              <Link href="/profile" title="Your profile" className="flex items-center gap-2">
                 <Avatar
                   url={profile?.profile_photo_url ?? null}
                   firstName={profile?.first_name ?? null}
@@ -43,9 +37,14 @@ export async function SiteHeader() {
                 />
                 <span className="hidden sm:inline">{profile?.first_name ?? "Profile"}</span>
               </Link>
-              <form action={signOut}>
-                <button type="submit" className="underline underline-offset-4">
-                  Sign out
+              <form action={signOut} className="flex">
+                <button
+                  type="submit"
+                  aria-label="Sign out"
+                  title="Sign out"
+                  className="-mx-2 flex h-10 w-10 cursor-pointer items-center justify-center text-dim hover:text-danger"
+                >
+                  <PixelIcon name="exit" size={16} />
                 </button>
               </form>
             </>
@@ -53,17 +52,17 @@ export async function SiteHeader() {
             <>
               <MembersOnlyButton
                 label="Upload (members only)"
-                className="flex items-center gap-1 text-neutral-400 dark:text-neutral-600 cursor-pointer"
+                className="flex items-center gap-1 text-dim cursor-pointer"
               >
-                <span aria-hidden>🔒</span> Upload
+                <PixelIcon name="lock" size={12} /> Upload
               </MembersOnlyButton>
-              <Link href="/login" className="underline underline-offset-4">
-                Sign in
-              </Link>
+              {MEME_LIBRARY_ENABLED && <NavLink href="/memes">Memes</NavLink>}
+              <NavLink href="/login">Sign in</NavLink>
             </>
           )}
         </div>
       </nav>
+      <div className="stripe" aria-hidden />
       {user && hasName(profile) && !profile?.profile_photo_url && (
         <ProfileNudge userId={user.id} />
       )}

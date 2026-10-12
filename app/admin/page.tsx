@@ -34,16 +34,16 @@ export default async function AdminPage() {
   return (
     <main className="flex-1 max-w-2xl w-full mx-auto px-4 sm:px-6 py-12 flex flex-col gap-6">
       <h1 className="text-3xl font-bold">Users</h1>
-      {error && <p className="text-red-500">The user list didn&apos;t load. Please refresh the page.</p>}
-      <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
+      {error && <p className="text-danger">The user list didn&apos;t load. Please refresh the page.</p>}
+      <ul className="flex flex-col divide-y divide-line">
         {users?.map((u) => (
           <li key={u.id} className="py-3 flex items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="font-medium truncate">
                 {u.first_name || u.last_name ? `${u.first_name ?? ""} ${u.last_name ?? ""}` : "(no name yet)"}
-                {u.is_superadmin && <span className="ml-2 text-xs text-neutral-500">superadmin</span>}
+                {u.is_superadmin && <span className="ml-2 text-xs text-dim">superadmin</span>}
               </p>
-              <p className="text-sm text-neutral-500">
+              <p className="text-sm text-dim">
                 {u.images[0]?.count ?? 0} photos · {u.captions[0]?.count ?? 0} captions · joined{" "}
                 {new Date(u.created_at).toLocaleDateString()}
               </p>

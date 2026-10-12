@@ -16,7 +16,7 @@ export default async function OnboardingPage() {
   return (
     <main className="flex-1 max-w-md w-full mx-auto px-6 py-16">
       <h1 className="text-3xl font-bold mb-2">Welcome!</h1>
-      <p className="text-neutral-500 mb-8">
+      <p className="text-dim mb-8">
         Before you get started, tell us your name.
       </p>
       <NameForm

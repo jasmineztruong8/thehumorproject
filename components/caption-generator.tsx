@@ -55,7 +55,7 @@ export function CaptionGenerator({ imageId }: { imageId: string }) {
         onSuggest={onSuggest}
         onPost={onPost}
       />
-      {message && <p className="text-sm text-green-600">{message}</p>}
+      {message && <p className="text-sm text-ok">{message}</p>}
     </div>
   );
 }

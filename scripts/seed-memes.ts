@@ -1,7 +1,7 @@
-// Fills the meme library (images with source = 'library') with recognizable
-// templates from memegen.link, an open-source (MIT) collection of blank meme
-// templates (animated GIF versions where they exist). Users can add any of
-// the other templates themselves from the search on /memes.
+// Fills the meme library (images with source = 'library') with the approved
+// templates (lib/meme-allowlist.ts) from memegen.link, an open-source (MIT)
+// collection of blank meme templates (animated GIF versions where they exist).
+// Users add the rest of the approved templates from the search on /memes.
 //
 // Run locally, never on Vercel:   npm run seed:memes
 //
@@ -10,23 +10,12 @@
 import { addToLibrary } from "@/lib/library";
 import { getMemeTemplates } from "@/lib/memegen";
 
-// Recognizable templates from https://api.memegen.link/templates
-const MEMEGEN_IDS = [
-  "drake", "db", "ds", "cmm", "fine", "gru", "pigeon", "woman-cat", "spongebob",
-  "buzz", "rollsafe", "both", "harold", "success", "fry", "mordor", "wonka",
-  "morpheus", "stonks", "panik-kalm-panik", "midwit", "kermit", "handshake",
-  "slap", "right", "astronaut", "exit", "gb", "michael-scott", "leo",
-  "khaby-lame", "drowning", "cheems", "doge", "disastergirl", "pooh", "winter",
-  "spiderman", "patrick", "money",
-];
-
 async function main() {
   for (const name of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GEMINI_API_KEY"]) {
     if (!process.env[name]) throw new Error(`${name} is missing from .env.local`);
   }
-  const templates = (await getMemeTemplates())
-    .map(({ template }) => template)
-    .filter((t) => MEMEGEN_IDS.includes(t.id));
+  // Already limited to the approved list in lib/meme-allowlist.ts
+  const templates = (await getMemeTemplates()).map(({ template }) => template);
   const items = templates.map((t) => ({
     key: `memegen-${t.id}`,
     title: t.name,

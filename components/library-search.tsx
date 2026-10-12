@@ -38,11 +38,11 @@ export function LibrarySearch() {
   }
 
   return (
-    <section className="rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 flex flex-col gap-4">
+    <section className="panel p-5 flex flex-col gap-4">
       <div>
         <h2 className="text-lg font-semibold">Find a meme template</h2>
-        <p className="text-sm text-neutral-500">
-          Search 200+ classic templates. Pick one, then tell the AI what the
+        <p className="text-sm text-dim">
+          Search our hand-picked classic templates. Pick one, then tell the AI what the
           joke should be about.
         </p>
       </div>
@@ -52,36 +52,36 @@ export function LibrarySearch() {
         maxLength={100}
         placeholder="e.g. cat, drake, spongebob"
         aria-label="Search meme templates"
-        className="rounded-lg border border-neutral-300 dark:border-neutral-700 bg-transparent px-3 py-2"
+        className="field"
       />
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           aria-pressed={gifsOnly}
           onClick={() => setGifsOnly(!gifsOnly)}
-          className={`rounded-full px-3 py-1 text-sm font-medium ${
+          className={`px-3 py-1 text-sm font-medium ${
             gifsOnly
-              ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-              : "border border-neutral-200 dark:border-neutral-800 text-neutral-500"
+              ? "tab-on"
+              : "border border-line text-dim"
           }`}
         >
           GIFs only
         </button>
-        <span className="mx-1 h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
+        <span className="mx-1 h-4 w-px bg-well" />
         {SUGGESTIONS.map((s) => (
           <button
             key={s}
             type="button"
             onClick={() => setQuery(s)}
-            className="rounded-full border border-neutral-200 dark:border-neutral-800 px-3 py-1 text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
+            className="border border-line px-3 py-1 text-xs tab-off"
           >
             {s}
           </button>
         ))}
       </div>
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
       {results?.length === 0 && !searching && (
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-dim">
           No templates match. Search by meme name, and put the topic (like
           &ldquo;snow&rdquo;) in the caption box after you pick one.
         </p>
@@ -94,7 +94,7 @@ export function LibrarySearch() {
                 type="button"
                 onClick={() => add(t.id)}
                 disabled={Boolean(adding)}
-                className="group relative block w-full rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-900 text-left disabled:cursor-wait"
+                className="group relative block w-full overflow-hidden bg-well text-left disabled:cursor-wait"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- external search results */}
                 <img src={t.thumbnail} alt={t.name} loading="lazy" className="aspect-square w-full object-cover" />
@@ -106,7 +106,7 @@ export function LibrarySearch() {
                 <span className="absolute inset-x-0 bottom-0 bg-black/60 text-white text-xs px-2 py-1.5 truncate">
                   {adding === t.id ? "AI is looking…" : t.name}
                 </span>
-                {adding === t.id && <span className="absolute inset-0 bg-white/40 dark:bg-black/40 animate-pulse" />}
+                {adding === t.id && <span className="absolute inset-0 bg-card/40 animate-pulse" />}
               </button>
             </li>
           ))}

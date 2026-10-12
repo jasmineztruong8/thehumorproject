@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FeedTabs } from "@/components/feed-tabs";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser, hasName } from "@/lib/auth";
@@ -45,9 +46,10 @@ export default async function MyPage() {
 
   return (
     <main className="flex-1 max-w-2xl w-full mx-auto px-4 sm:px-6 py-12 flex flex-col gap-10">
+      <FeedTabs active="mine" signedIn className="-mb-4" />
       <div>
         <h1 className="text-3xl font-bold mb-2">My stuff</h1>
-        <p className="text-neutral-500">
+        <p className="text-dim">
           {images?.length ?? 0} photos · {captions?.length ?? 0} captions · {totalScore} total votes
         </p>
       </div>
@@ -58,7 +60,7 @@ export default async function MyPage() {
           <ul className="grid grid-cols-3 gap-3">
             {images.map((image) => (
               <li key={image.id}>
-                <Link href={`/images/${image.id}`} className="block rounded-lg overflow-hidden">
+                <Link href={`/images/${image.id}`} className="block overflow-hidden">
                   <StoredImage
                     src={image.image_url}
                     alt="My upload"
@@ -70,7 +72,7 @@ export default async function MyPage() {
             ))}
           </ul>
         ) : (
-          <p className="text-neutral-500">
+          <p className="text-dim">
             Nothing yet. <Link href="/submit" className="underline underline-offset-4">Upload a photo</Link>.
           </p>
         )}
@@ -79,13 +81,13 @@ export default async function MyPage() {
       <section className="flex flex-col gap-4">
         <h2 className="text-xl font-semibold">My captions</h2>
         {!captions?.length && (
-          <p className="text-neutral-500">
+          <p className="text-dim">
             Nothing yet. Open any photo in the feed and generate a caption.
           </p>
         )}
         <ul className="flex flex-col gap-4">
           {captions?.map((caption) => (
-            <li key={caption.id} className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 flex gap-4 items-center">
+            <li key={caption.id} className="panel p-4 flex gap-4 items-center">
               <Link href={`/images/${caption.images.id}`} className="shrink-0 w-16 rounded-md overflow-hidden">
                 <StoredImage src={caption.images.image_url} alt="" sizes="64px" className="aspect-square object-cover" />
               </Link>

@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The dev-only Next.js badge defaults to bottom-left, where the sidekick lives
+  devIndicators: { position: "bottom-right" },
   images: {
     // Profile photos and uploaded/meme images from our Supabase Storage only
     remotePatterns: [

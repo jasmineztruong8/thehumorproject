@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PixelIcon } from "@/components/pixel-icon";
 import { notFound } from "next/navigation";
 import { MEME_LIBRARY_ENABLED } from "@/lib/features";
 import { createClient } from "@/lib/supabase/server";
@@ -45,7 +46,7 @@ export default async function MemesPage({ searchParams }: PageProps<"/memes">) {
   return (
     <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-12">
       <h1 className="text-3xl font-bold mb-2">Meme library</h1>
-      <p className="text-neutral-500 mb-8">
+      <p className="text-dim mb-8">
         No photo? Pick a template and tell the AI what it should be about.
       </p>
 
@@ -53,8 +54,8 @@ export default async function MemesPage({ searchParams }: PageProps<"/memes">) {
         {user ? (
           <LibrarySearch />
         ) : (
-          <MembersOnlyButton className="w-full rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-700 p-5 text-left text-neutral-500">
-            🔒 Search 200+ meme templates to caption
+          <MembersOnlyButton className="w-full border-2 border-dashed border-line bg-card p-5 text-left text-dim">
+            <PixelIcon name="lock" size={14} className="inline mr-2 align-[-1px]" />Search hand-picked meme templates to caption
           </MembersOnlyButton>
         )}
       </div>
@@ -64,24 +65,24 @@ export default async function MemesPage({ searchParams }: PageProps<"/memes">) {
           <Link
             key={value}
             href={value === "all" ? "/memes" : `/memes?type=${value}`}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+            className={`px-4 py-1.5 text-sm font-medium ${
               filter === value
-                ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-                : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
+                ? "tab-on"
+                : "tab-off"
             }`}
           >
             {text}
           </Link>
         ))}
       </nav>
-      {error && <p className="text-red-500">The memes didn&apos;t load. Please refresh the page.</p>}
-      {templates?.length === 0 && <p className="text-neutral-500">No templates yet.</p>}
+      {error && <p className="text-danger">The memes didn&apos;t load. Please refresh the page.</p>}
+      {templates?.length === 0 && <p className="text-dim">No memes picked yet. Use the search above to add the first one.</p>}
       <ul className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {templates?.map((t) => (
           <li key={t.id}>
             <Link
               href={`/images/${t.id}`}
-              className="relative block rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden hover:border-neutral-400"
+              className="relative block panel overflow-hidden hover:border-dim"
             >
               <StoredImage
                 src={t.image_url}
@@ -96,7 +97,7 @@ export default async function MemesPage({ searchParams }: PageProps<"/memes">) {
               )}
               <div className="p-3 text-sm">
                 <p className="font-medium truncate">{t.title}</p>
-                <p className="text-neutral-500">
+                <p className="text-dim">
                   {t.captions[0]?.count ?? 0} captions
                 </p>
               </div>

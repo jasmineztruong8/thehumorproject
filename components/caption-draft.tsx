@@ -1,24 +1,25 @@
 "use client";
 
+import { PixelIcon } from "@/components/pixel-icon";
 import { SteerInput } from "@/components/steer-input";
 
 const primary =
-  "rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 px-5 py-2.5 font-medium disabled:opacity-50";
+  "btn-primary px-5 py-2.5 font-medium disabled:opacity-50";
 const secondary =
-  "rounded-full border border-neutral-300 dark:border-neutral-700 px-5 py-2.5 font-medium disabled:opacity-50";
+  "btn-secondary px-5 py-2.5 font-medium disabled:opacity-50";
 
 // A pulsing placeholder with a label, shown while the AI is working.
 export function AiLoading({ label, lines = 2 }: { label: string; lines?: number }) {
   return (
     <div className="flex flex-col gap-2" role="status" aria-live="polite">
-      <span className="text-sm text-neutral-500 flex items-center gap-2">
-        <span className="inline-block h-3 w-3 rounded-full border-2 border-neutral-400 border-t-transparent animate-spin" aria-hidden />
+      <span className="text-sm text-dim flex items-center gap-2">
+        <span className="inline-block h-3 w-3 rounded-full border-2 border-dim border-t-transparent animate-spin" aria-hidden />
         {label}
       </span>
       {Array.from({ length: lines }, (_, i) => (
         <span
           key={i}
-          className={`h-4 rounded bg-neutral-200 dark:bg-neutral-800 animate-pulse ${i === lines - 1 ? "w-2/3" : "w-full"}`}
+          className={`h-4 rounded bg-well animate-pulse ${i === lines - 1 ? "w-2/3" : "w-full"}`}
         />
       ))}
     </div>
@@ -62,11 +63,12 @@ export function CaptionDraft({
         onClick={onSuggest}
         className={`self-start ${caption ? secondary : primary}`}
       >
-        {caption ? "↻ Try another caption" : "✨ Generate a caption"}
+        <PixelIcon name={caption ? "refresh" : "sparkle"} size={14} />
+        {caption ? "Try another caption" : "Generate a caption"}
       </button>
 
-      <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 flex flex-col gap-3">
-        <span className="text-xs font-medium uppercase tracking-wide text-neutral-500">Suggested caption</span>
+      <div className="panel p-4 flex flex-col gap-3">
+        <span className="text-xs font-medium uppercase tracking-wide text-dim">Suggested caption</span>
         {loading ? (
           <AiLoading label={loading} />
         ) : caption ? (
@@ -74,17 +76,18 @@ export function CaptionDraft({
             <p className="text-lg">{caption}</p>
             <button type="button" disabled={posting} onClick={onPost} className={`self-start ${primary}`}>
               {posting ? "Posting…" : postLabel}
+              <PixelIcon name="arrow" size={12} className="rotate-90" />
             </button>
           </>
         ) : (
-          <p className="text-neutral-500">
+          <p className="text-dim">
             Pick a topic (or don&apos;t) and click Generate. You can try as many as you like
             before posting.
           </p>
         )}
       </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
     </div>
   );
 }

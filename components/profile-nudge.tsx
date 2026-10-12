@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PixelIcon } from "@/components/pixel-icon";
 import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 
@@ -44,14 +45,14 @@ export function ProfileNudge({ userId }: { userId: string }) {
   return (
     <div
       role="status"
-      className="fixed bottom-4 right-4 left-4 sm:left-auto sm:w-80 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-lg p-4 flex gap-3 items-start"
+      className="fixed bottom-4 right-4 left-4 sm:left-auto sm:w-80 panel p-4 flex gap-3 items-start"
     >
       <span className="text-2xl" aria-hidden>
-        📸
+        <PixelIcon name="camera" size={22} />
       </span>
       <div className="flex-1 text-sm">
         <p className="font-medium">Finish setting up your profile</p>
-        <p className="text-neutral-500 mb-2">
+        <p className="text-dim mb-2">
           Add a photo so people know who&apos;s joking.
         </p>
         <Link href="/profile" className="font-medium underline underline-offset-4">
@@ -61,7 +62,7 @@ export function ProfileNudge({ userId }: { userId: string }) {
       <button
         onClick={dismiss}
         aria-label="Dismiss"
-        className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
+        className="text-dim hover:text-ink"
       >
         ✕
       </button>

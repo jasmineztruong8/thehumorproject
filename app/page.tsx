@@ -8,8 +8,10 @@ import { MEME_LIBRARY_ENABLED } from "@/lib/features";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { CaptionItem } from "@/components/caption-item";
 import { DeleteButton } from "@/components/delete-button";
+import { FeedTabs } from "@/components/feed-tabs";
 import { deleteImage } from "@/app/actions";
 import { StoredImage } from "@/components/stored-image";
+import { PixelIcon, type PixelIconName } from "@/components/pixel-icon";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,7 @@ type FeedImage = {
   id: string;
   image_url: string;
   title: string | null;
+  source: "upload" | "library";
   user_id: string | null;
   created_at: string;
   profiles: Author;
@@ -25,10 +28,21 @@ type FeedImage = {
 };
 
 type TopCaption = Caption & {
-  images: { id: string; image_url: string; title: string | null };
+  images: { id: string; image_url: string; title: string | null; source: "upload" | "library" };
 };
 
 const FEED_LIMIT = 30;
+
+// Meme templates come in all shapes (many are tall or square), so in the feed
+// they fill a photo-shaped frame, cropped to fit. The image page shows them whole.
+const MEME_FRAME = "aspect-[3/2] object-cover";
+
+// How the app helps, shown to signed-out visitors
+const STEPS: [icon: PixelIconName, title: string, text: string][] = [
+  ["camera", "Snap it", "Upload any photo or GIF"],
+  ["sparkle", "AI writes it", "Steer the joke, retry till it lands"],
+  ["arrow", "Crowd votes", "The funniest rise to the top"],
+];
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const supabase = await createClient();
@@ -39,19 +53,19 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const label = createAuthorLabeler(Boolean(user));
   const canDelete = (userId: string) => user?.id === userId || isSuperadmin(profile);
 
-  // "New": newest uploads, each with its best caption.
+  // "New": newest uploads (and captioned memes when enabled), each with its best caption.
   // "Top": the highest-voted captions anywhere (uploads, and memes when enabled).
-  const { data: images, error: imagesError } =
+  const { data: newest, error: imagesError } =
     sort === "new"
       ? await supabase
           .from("images")
           .select(
-            `id, image_url, title, user_id, created_at,
+            `id, image_url, title, source, user_id, created_at,
              profiles!images_user_id_fkey(first_name, last_name),
              top:captions(${CAPTION_FIELDS}),
              caption_count:captions(count)`,
           )
-          .eq("source", "upload")
+          .in("source", MEME_LIBRARY_ENABLED ? ["upload", "library"] : ["upload"])
           .order("created_at", { ascending: false })
           .order("score", { referencedTable: "top", ascending: false })
           .order("created_at", { referencedTable: "top", ascending: false })
@@ -59,6 +73,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           .limit(FEED_LIMIT)
           .returns<FeedImage[]>()
       : { data: null, error: null };
+  // A meme template only belongs in the feed once someone has captioned it
+  const images = newest?.filter((i) => i.source === "upload" || i.top.length > 0);
 
   const { data: topCaptions, error: captionsError } =
     sort === "top"
@@ -81,57 +97,50 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const error = imagesError ?? captionsError;
   if (error) console.error("Loading the feed failed", error);
 
-  const tab = (value: string, text: string) => (
-    <Link
-      href={value === "new" ? "/" : `/?sort=${value}`}
-      className={`rounded-full px-4 py-1.5 text-sm font-medium ${
-        sort === value
-          ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-          : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
-      }`}
-    >
-      {text}
-    </Link>
-  );
-
   return (
     <main className="flex-1 max-w-2xl w-full mx-auto px-4 sm:px-6 py-12">
       {user ? (
         <div className="mb-8 flex items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold mb-2">The Humor Project</h1>
-            <p className="text-neutral-500">Real photos, AI captions, your votes.</p>
+            <p className="text-dim">Real photos, AI captions, your votes.</p>
           </div>
           <Link
             href="/submit"
-            className="shrink-0 self-center inline-flex h-10 items-center whitespace-nowrap rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 px-4 text-sm font-medium"
+            className="shrink-0 self-center whitespace-nowrap btn-primary px-3 py-1 text-sm"
           >
-            + Upload
+            <PixelIcon name="plus" size={12} /> Upload
           </Link>
         </div>
       ) : (
-        <section className="mb-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-8 flex flex-col items-center gap-4 text-center">
+        <section className="mb-8 panel p-8 flex flex-col items-center gap-4 text-center">
           <h1 className="text-3xl font-bold">Your camera roll, but funnier.</h1>
-          <p className="text-neutral-500 max-w-md">
+          <p className="text-dim max-w-md">
             Upload a photo or pick a meme and AI writes the caption. Everyone
             votes, and the funniest rise to the top. Sign in with Google to
             upload, caption and vote.
           </p>
           <GoogleSignInButton />
+          <ol className="mt-2 grid w-full grid-cols-3 gap-3 border-t-2 border-line pt-6 text-sm">
+            {STEPS.map(([icon, title, text]) => (
+              <li key={title} className="flex flex-col items-center gap-1">
+                <PixelIcon name={icon} size={24} />
+                <span className="font-pixel text-base font-bold">{title}</span>
+                <span className="text-dim">{text}</span>
+              </li>
+            ))}
+          </ol>
         </section>
       )}
 
-      <nav className="mb-6 flex gap-2">
-        {tab("new", "New")}
-        {tab("top", "Top captions")}
-      </nav>
+      <FeedTabs active={sort} signedIn={Boolean(user)} className="mb-6" />
 
-      {error && <p className="text-red-500">The feed didn&apos;t load. Please refresh the page.</p>}
+      {error && <p className="text-danger">The feed didn&apos;t load. Please refresh the page.</p>}
 
       {sort === "new" && (
         <ul className="flex flex-col gap-6">
           {images?.length === 0 && (
-            <p className="text-neutral-500">
+            <p className="text-dim">
               No uploads yet.{" "}
               {user ? (
                 <Link href="/submit" className="underline underline-offset-4">Upload the first photo</Link>
@@ -144,9 +153,13 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             const top = image.top[0];
             const count = image.caption_count[0]?.count ?? 0;
             return (
-              <li key={image.id} className="rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+              <li key={image.id} className="panel overflow-hidden">
                 <Link href={`/images/${image.id}`}>
-                  <StoredImage src={image.image_url} alt={top?.content ?? "Uploaded photo"} />
+                  <StoredImage
+                    src={image.image_url}
+                    alt={top?.content ?? "Uploaded photo"}
+                    className={image.source === "library" ? MEME_FRAME : ""}
+                  />
                 </Link>
                 <div className="p-5 flex flex-col gap-3">
                   {top ? (
@@ -158,11 +171,13 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                       canDelete={canDelete(top.user_id)}
                     />
                   ) : (
-                    <p className="text-neutral-500">No captions yet.</p>
+                    <p className="text-dim">No captions yet.</p>
                   )}
-                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-neutral-500">
+                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-dim">
                     <span className="flex items-center gap-3">
-                      Uploaded by {label(image.user_id, image.profiles)}
+                      {image.source === "library"
+                        ? `Meme template${image.title ? `: ${image.title}` : ""}`
+                        : `Uploaded by ${label(image.user_id, image.profiles)}`}
                       {image.user_id && canDelete(image.user_id) && (
                         <DeleteButton
                           action={deleteImage.bind(null, image.id, true)}
@@ -171,8 +186,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                         />
                       )}
                     </span>
-                    <Link href={`/images/${image.id}`} className="underline underline-offset-4">
-                      {count > 1 ? `See all ${count} captions` : "Add a caption"} →
+                    <Link href={`/images/${image.id}`} className="nav-link">
+                      <PixelIcon name={count > 1 ? "bubble" : "plus"} size={14} />
+                      {count > 1 ? `See all ${count} captions` : "Add a caption"}
                     </Link>
                   </div>
                 </div>
@@ -184,11 +200,18 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
       {sort === "top" && (
         <ul className="flex flex-col gap-6">
-          {topCaptions?.length === 0 && <p className="text-neutral-500">No captions yet.</p>}
-          {topCaptions?.map((caption) => (
-            <li key={caption.id} className="rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+          {topCaptions?.length === 0 && <p className="text-dim">No captions yet.</p>}
+          {topCaptions?.map((caption, i) => (
+            <li key={caption.id} className="panel relative overflow-hidden">
+              <span className="absolute top-0 left-0 z-10 border-r-2 border-b-2 border-line bg-accent px-2 py-0.5 font-pixel font-bold text-on-accent">
+                #{i + 1}
+              </span>
               <Link href={`/images/${caption.images.id}`}>
-                <StoredImage src={caption.images.image_url} alt={caption.images.title ?? caption.content} />
+                <StoredImage
+                  src={caption.images.image_url}
+                  alt={caption.images.title ?? caption.content}
+                  className={caption.images.source === "library" ? MEME_FRAME : ""}
+                />
               </Link>
               <div className="p-5">
                 <CaptionItem

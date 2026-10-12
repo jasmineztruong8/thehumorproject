@@ -29,11 +29,11 @@ export function GoogleSignInButton() {
       <button
         onClick={signIn}
         disabled={pending}
-        className="rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 px-5 py-2.5 font-medium disabled:opacity-50"
+        className="btn-primary px-5 py-2.5 font-medium disabled:opacity-50"
       >
         {pending ? "Redirecting…" : "Sign in with Google"}
       </button>
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
     </div>
   );
 }

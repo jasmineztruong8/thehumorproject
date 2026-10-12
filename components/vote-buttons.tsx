@@ -1,6 +1,7 @@
 "use client";
 
 import { useOptimistic, useTransition } from "react";
+import { PixelIcon } from "@/components/pixel-icon";
 import { vote } from "@/app/actions";
 import { MembersOnlyButton } from "@/components/members-only-button";
 
@@ -12,7 +13,7 @@ type Props = {
 };
 
 const arrowClass =
-  "w-8 h-8 rounded-full flex items-center justify-center text-sm transition-colors";
+  "w-10 h-10 flex items-center justify-center text-sm transition-colors";
 
 export function VoteButtons({ captionId, score, myVote, signedIn }: Props) {
   const [pending, startTransition] = useTransition();
@@ -22,12 +23,12 @@ export function VoteButtons({ captionId, score, myVote, signedIn }: Props) {
   if (!signedIn) {
     return (
       <div className="shrink-0 flex flex-col items-center gap-1">
-        <MembersOnlyButton label="Upvote" className={`${arrowClass} text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800`}>
-          ▲
+        <MembersOnlyButton label="Upvote" className={`${arrowClass} text-dim hover:bg-well`}>
+          <PixelIcon name="arrow" size={14} />
         </MembersOnlyButton>
         <span className="text-sm font-medium tabular-nums">{score}</span>
-        <MembersOnlyButton label="Downvote" className={`${arrowClass} text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800`}>
-          ▼
+        <MembersOnlyButton label="Downvote" className={`${arrowClass} text-dim hover:bg-well`}>
+          <PixelIcon name="arrow" size={14} className="rotate-180" />
         </MembersOnlyButton>
       </div>
     );
@@ -44,8 +45,9 @@ export function VoteButtons({ captionId, score, myVote, signedIn }: Props) {
     });
   }
 
-  const active = "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900";
-  const idle = "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800";
+  const votedUp = "bg-accent text-on-accent";
+  const votedDown = "bg-danger text-page";
+  const idle = "text-dim hover:bg-well";
 
   return (
     <div className="shrink-0 flex flex-col items-center gap-1">
@@ -55,9 +57,9 @@ export function VoteButtons({ captionId, score, myVote, signedIn }: Props) {
         aria-pressed={optimistic.myVote === 1}
         disabled={pending}
         onClick={() => cast(1)}
-        className={`${arrowClass} ${optimistic.myVote === 1 ? active : idle}`}
+        className={`${arrowClass} ${optimistic.myVote === 1 ? votedUp : idle}`}
       >
-        ▲
+        <PixelIcon name="arrow" size={14} />
       </button>
       <span className="text-sm font-medium tabular-nums">{optimistic.score}</span>
       <button
@@ -66,9 +68,9 @@ export function VoteButtons({ captionId, score, myVote, signedIn }: Props) {
         aria-pressed={optimistic.myVote === -1}
         disabled={pending}
         onClick={() => cast(-1)}
-        className={`${arrowClass} ${optimistic.myVote === -1 ? active : idle}`}
+        className={`${arrowClass} ${optimistic.myVote === -1 ? votedDown : idle}`}
       >
-        ▼
+        <PixelIcon name="arrow" size={14} className="rotate-180" />
       </button>
     </div>
   );

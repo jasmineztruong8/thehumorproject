@@ -1,5 +1,6 @@
 // memegen.link: an open-source (MIT) collection of ~200 blank meme templates,
 // some with animated GIF versions. Free, no API key.
+import { isApprovedMeme } from "@/lib/meme-allowlist";
 
 const API = "https://api.memegen.link/templates";
 
@@ -26,11 +27,16 @@ function toTemplate(t: Raw): MemeTemplate {
   };
 }
 
+// Only approved templates: search, adding and seeding all go through here.
 export async function getMemeTemplates() {
   // The list rarely changes, so let Next cache it for a day
   const res = await fetch(API, { next: { revalidate: 86400 } });
   if (!res.ok) throw new Error(`memegen failed: ${res.status}`);
-  return ((await res.json()) as Raw[]).map((t) => ({ raw: t, template: toTemplate(t) }));
+  // memegen lists a few templates twice, so keep the first of each id
+  const seen = new Set<string>();
+  return ((await res.json()) as Raw[])
+    .filter((t) => isApprovedMeme(t.id) && !seen.has(t.id) && seen.add(t.id))
+    .map((t) => ({ raw: t, template: toTemplate(t) }));
 }
 
 // Matches the template's name, id and keywords (e.g. "office" finds Michael

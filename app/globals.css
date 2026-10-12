@@ -1,26 +1,198 @@
 @import "tailwindcss";
 
+/* Light: rainbows and sunshine. Change a colour here and it changes everywhere. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light dark;
+  --page: #fff8e1;
+  --card: #ffffff;
+  --well: #eef2fc;
+  --ink: #1f2440;
+  --dim: #5b6080;
+  --line: #1f2440;
+  --accent: #ffcf33;
+  --on-accent: #1f2440;
+  --danger: #d92d4b;
+  --on-danger: #ffffff;
+  --ok: #17803d;
+  --shadow: #1f2440;
+  --btn-shadow: #1f2440;
+  --page-art: linear-gradient(#dff3ff, #fff8e1);
+  --twinkle-art: none;
+  /* Six stacked pixel bands */
+  --stripe: linear-gradient(
+    #ff5d73 0 2px, #ff9f43 2px 4px, #ffcf33 4px 6px,
+    #4cd48a 6px 8px, #4aa8ff 8px 10px, #9b6bff 10px 12px
+  );
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* Dark: late-night talk show. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --page: #0b0d24;
+    --card: #151a3d;
+    --well: #1f2553;
+    --ink: #f4efe1;
+    --dim: #a9aed6;
+    --line: #3a4285;
+    --accent: #ffd447;
+    --on-accent: #0b0d24;
+    --danger: #ff7a70;
+    --on-danger: #0b0d24;
+    --ok: #6ee7a8;
+    --shadow: #2a3170;
+    --btn-shadow: #8a6a12;
+    --page-art: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' shape-rendering='crispEdges' fill='%23f4efe1' fill-opacity='.55'%3E%3Cpath d='M12 18h2v2h-2zM60 44h3v3h-3zM110 12h2v2h-2zM170 60h2v2h-2zM30 120h2v2h-2zM88 96h3v3h-3zM150 140h2v2h-2zM190 180h2v2h-2zM70 170h2v2h-2zM130 70h2v2h-2zM40 66h2v10h-2zM36 70h10v2h-10z'/%3E%3C/svg%3E");
+    --twinkle-art: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' shape-rendering='crispEdges' fill='%23ffd447'%3E%3Cpath d='M22 40h3v3h-3zM140 30h2v2h-2zM200 110h3v3h-3zM80 150h2v2h-2zM230 220h2v2h-2zM180 196h2v10h-2zM176 200h10v2h-10z'/%3E%3C/svg%3E");
+    /* A row of marquee bulbs */
+    --stripe: repeating-linear-gradient(90deg, #ffd447 0 6px, transparent 6px 18px) center / auto 6px no-repeat;
   }
 }
 
+@theme inline {
+  --color-page: var(--page);
+  --color-card: var(--card);
+  --color-well: var(--well);
+  --color-ink: var(--ink);
+  --color-dim: var(--dim);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-pixel: var(--font-pixelify), var(--font-geist-mono), monospace;
+}
+
+html {
+  background: var(--page);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--ink);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Sky by day, star field by night; sits behind everything and never scrolls. */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+body::before {
+  background: var(--page-art);
+}
+body::after {
+  background: var(--twinkle-art);
+  animation: twinkle 4s steps(4) infinite alternate;
+}
+@keyframes twinkle {
+  from { opacity: 0.2; }
+  to { opacity: 0.9; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body::after {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+h1,
+h2 {
+  font-family: var(--font-pixel);
+  letter-spacing: 0.01em;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .panel {
+    background: var(--card);
+    border: 2px solid var(--line);
+    box-shadow: 4px 4px 0 var(--shadow);
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 2px solid var(--line);
+    box-shadow: 3px 3px 0 var(--btn-shadow);
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 80ms, box-shadow 80ms;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--on-accent);
+    border-color: var(--on-accent);
+  }
+  .btn-secondary {
+    background: var(--card);
+    color: var(--ink);
+    box-shadow: 3px 3px 0 var(--shadow);
+  }
+  .btn-danger {
+    background: var(--danger);
+    color: var(--on-danger);
+    border-color: var(--on-danger);
+    box-shadow: 3px 3px 0 var(--shadow);
+  }
+  /* Pressing a button pushes it into its shadow */
+  :is(.btn-primary, .btn-secondary, .btn-danger):active:not(:disabled) {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 transparent;
+  }
+  :is(.btn-primary, .btn-secondary, .btn-danger):disabled {
+    cursor: not-allowed;
+  }
+
+  .field {
+    background: var(--card);
+    color: var(--ink);
+    border: 2px solid var(--line);
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* Tabs, filters and topic chips */
+  .tab-on {
+    background: var(--accent);
+    color: var(--on-accent);
+    border-color: var(--on-accent);
+    box-shadow: 2px 2px 0 var(--btn-shadow);
+  }
+  .tab-off {
+    color: var(--dim);
+  }
+  .tab-off:hover {
+    color: var(--ink);
+  }
+
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    cursor: pointer;
+    font-weight: 500;
+    text-decoration: underline transparent 2px;
+    text-underline-offset: 6px;
+  }
+  .nav-link:hover,
+  .nav-link[aria-current="page"] {
+    text-decoration-color: var(--accent);
+  }
+
+  .stripe {
+    height: 12px;
+    background: var(--stripe);
+  }
 }

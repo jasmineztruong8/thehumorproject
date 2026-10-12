@@ -26,11 +26,11 @@ export function CaptionItem({
         signedIn={signedIn}
       />
       <div className="flex-1 min-w-0">
-        <p className="text-lg break-words">{caption.content}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500">
+        <p className="text-xl sm:text-2xl font-semibold leading-snug break-words">{caption.content}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-dim">
           {author && <span>— {author}</span>}
           {caption.user_prompt && (
-            <span className="rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-xs">
+            <span className="bg-well px-2 py-0.5 text-xs">
               about: {caption.user_prompt}
             </span>
           )}

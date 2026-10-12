@@ -19,7 +19,7 @@ export function StoredImage({
       width={0}
       height={0}
       sizes={sizes}
-      className={`w-full h-auto bg-neutral-100 dark:bg-neutral-900 ${className}`}
+      className={`w-full h-auto bg-well ${className}`}
     />
   );
 }

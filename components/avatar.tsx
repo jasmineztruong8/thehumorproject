@@ -25,7 +25,7 @@ export function Avatar({ url, firstName, lastName, size }: Props) {
   return (
     <span
       style={{ width: size, height: size, fontSize: size * 0.4 }}
-      className="rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center font-medium"
+      className="rounded-full bg-well flex items-center justify-center font-medium"
     >
       {initials}
     </span>

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PixelIcon } from "@/components/pixel-icon";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { deleteImage } from "@/app/actions";
@@ -6,6 +6,7 @@ import { getCurrentUser, hasName, isSuperadmin } from "@/lib/auth";
 import { CAPTION_FIELDS, getMyVotes, type Caption } from "@/lib/captions";
 import { createAuthorLabeler, type Author } from "@/lib/display-name";
 import { MEME_LIBRARY_ENABLED } from "@/lib/features";
+import { BackLink } from "@/components/back-link";
 import { CaptionGenerator } from "@/components/caption-generator";
 import { CaptionItem } from "@/components/caption-item";
 import { DeleteButton } from "@/components/delete-button";
@@ -56,9 +57,10 @@ export default async function ImagePage({ params }: PageProps<"/images/[id]">) {
 
   return (
     <main className="flex-1 max-w-2xl w-full mx-auto px-4 sm:px-6 py-12 flex flex-col gap-8">
-      <section className="rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+      <BackLink />
+      <section className="panel overflow-hidden">
         <StoredImage src={image.image_url} alt={image.title ?? image.description} />
-        <div className="p-5 flex flex-col gap-2 text-sm text-neutral-500">
+        <div className="p-5 flex flex-col gap-2 text-sm text-dim">
           <div className="flex flex-wrap justify-between gap-2">
             <span>
               {image.source === "library"
@@ -86,22 +88,22 @@ export default async function ImagePage({ params }: PageProps<"/images/[id]">) {
         {user ? (
           <CaptionGenerator imageId={image.id} />
         ) : (
-          <MembersOnlyButton className="self-start rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 px-5 py-2.5 font-medium">
-            🔒 Generate a caption
+          <MembersOnlyButton className="self-start btn-primary px-5 py-2.5 font-medium">
+            <PixelIcon name="lock" size={14} /> Generate a caption
           </MembersOnlyButton>
         )}
       </section>
 
       <section className="flex flex-col gap-4">
         <h2 className="text-xl font-semibold">
-          Captions <span className="text-neutral-500 font-normal">({image.captions.length})</span>
+          Captions <span className="text-dim font-normal">({image.captions.length})</span>
         </h2>
         {image.captions.length === 0 && (
-          <p className="text-neutral-500">No captions yet. Be the first!</p>
+          <p className="text-dim">No captions yet. Be the first!</p>
         )}
         <ul className="flex flex-col gap-4">
           {image.captions.map((caption) => (
-            <li key={caption.id} className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-5">
+            <li key={caption.id} className="panel p-5">
               <CaptionItem
                 caption={caption}
                 author={label(caption.user_id, caption.profiles)}
@@ -114,9 +116,7 @@ export default async function ImagePage({ params }: PageProps<"/images/[id]">) {
         </ul>
       </section>
 
-      <Link href="/" className="text-sm text-neutral-500 underline underline-offset-4">
-        ← Back to the feed
-      </Link>
+      <BackLink />
     </main>
   );
 }

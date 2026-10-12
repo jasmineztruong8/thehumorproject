@@ -96,7 +96,7 @@ export function PhotoUpload({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={pending}
-        className="self-start rounded-full border border-neutral-300 dark:border-neutral-700 px-4 py-2 text-sm font-medium disabled:opacity-50"
+        className="self-start btn-secondary px-4 py-2 text-sm font-medium disabled:opacity-50"
       >
         {pending ? "Working…" : "Upload new photo"}
       </button>
@@ -105,15 +105,15 @@ export function PhotoUpload({
           type="button"
           onClick={handleRemove}
           disabled={pending}
-          className="self-start text-sm text-red-500 underline underline-offset-4 disabled:opacity-50"
+          className="self-start text-sm text-danger underline underline-offset-4 disabled:opacity-50"
         >
           Remove photo
         </button>
       )}
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-dim">
         Any photo works; we&apos;ll resize it for you.
       </p>
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
     </div>
   );
 }
