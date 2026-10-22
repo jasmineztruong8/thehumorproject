@@ -9,7 +9,7 @@ import { MEME_LIBRARY_ENABLED } from "@/lib/features";
 import { BackLink } from "@/components/back-link";
 import { CaptionGenerator } from "@/components/caption-generator";
 import { CaptionItem } from "@/components/caption-item";
-import { DeleteButton } from "@/components/delete-button";
+import { ActionsMenu } from "@/components/actions-menu";
 import { MembersOnlyButton } from "@/components/members-only-button";
 import { StoredImage } from "@/components/stored-image";
 
@@ -60,26 +60,31 @@ export default async function ImagePage({ params }: PageProps<"/images/[id]">) {
       <BackLink />
       <section className="panel overflow-hidden">
         <StoredImage src={image.image_url} alt={image.title ?? image.description} />
-        <div className="p-5 flex flex-col gap-2 text-sm text-dim">
-          <div className="flex flex-wrap justify-between gap-2">
+        {/* Gear in the bottom-right corner, like on feed cards */}
+        <div className="p-5 flex items-end gap-4 text-sm text-dim">
+          <div className="flex-1 min-w-0 flex flex-col gap-2">
             <span>
               {image.source === "library"
                 ? `Meme template${image.title ? `: ${image.title}` : ""}`
                 : `Uploaded by ${uploader}`}
             </span>
-            {(image.user_id === user?.id || admin) && (
-              <DeleteButton
-                action={deleteImage.bind(null, image.id)}
-                confirmText={`Delete this ${image.source === "library" ? "template" : "photo"} and all ${image.captions.length} caption${image.captions.length === 1 ? "" : "s"} on it?`}
-                label="Delete photo"
-              />
-            )}
+            {image.attribution && <span className="text-xs">{image.attribution}</span>}
+            <details>
+              <summary className="cursor-pointer">What the AI sees</summary>
+              <p className="mt-2">{image.description}</p>
+            </details>
           </div>
-          {image.attribution && <span className="text-xs">{image.attribution}</span>}
-          <details>
-            <summary className="cursor-pointer">What the AI sees</summary>
-            <p className="mt-2">{image.description}</p>
-          </details>
+          {(image.user_id === user?.id || admin) && (
+            <ActionsMenu
+              items={[
+                {
+                  label: `Delete ${image.source === "library" ? "template" : "photo"}`,
+                  confirmText: `Delete this ${image.source === "library" ? "template" : "photo"} and all ${image.captions.length} caption${image.captions.length === 1 ? "" : "s"} on it?`,
+                  action: deleteImage.bind(null, image.id),
+                },
+              ]}
+            />
+          )}
         </div>
       </section>
 

@@ -7,9 +7,9 @@ import { createAuthorLabeler, type Author } from "@/lib/display-name";
 import { MEME_LIBRARY_ENABLED } from "@/lib/features";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { CaptionItem } from "@/components/caption-item";
-import { DeleteButton } from "@/components/delete-button";
+import { ActionsMenu, type MenuAction } from "@/components/actions-menu";
 import { FeedTabs } from "@/components/feed-tabs";
-import { deleteImage } from "@/app/actions";
+import { deleteCaption, deleteImage } from "@/app/actions";
 import { StoredImage } from "@/components/stored-image";
 import { PixelIcon, type PixelIconName } from "@/components/pixel-icon";
 
@@ -152,6 +152,22 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           {images?.map((image) => {
             const top = image.top[0];
             const count = image.caption_count[0]?.count ?? 0;
+            // One gear menu per card for everything this user may delete on it
+            const actions: MenuAction[] = [];
+            if (top && canDelete(top.user_id)) {
+              actions.push({
+                label: "Delete caption",
+                confirmText: "Delete this caption? Its votes will be removed too. The photo stays.",
+                action: deleteCaption.bind(null, top.id),
+              });
+            }
+            if (image.user_id && canDelete(image.user_id)) {
+              actions.push({
+                label: "Delete photo",
+                confirmText: `Delete this photo and ${count === 1 ? "its caption" : count > 1 ? `all ${count} captions` : "it"}?`,
+                action: deleteImage.bind(null, image.id, true),
+              });
+            }
             return (
               <li key={image.id} className="panel overflow-hidden">
                 <Link href={`/images/${image.id}`}>
@@ -168,28 +184,30 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                       author={label(top.user_id, top.profiles)}
                       myVote={myVotes.get(top.id) ?? null}
                       signedIn={Boolean(user)}
-                      canDelete={canDelete(top.user_id)}
+                      canDelete={false} // in the card's gear menu below
                     />
                   ) : (
                     <p className="text-dim">No captions yet.</p>
                   )}
                   <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-dim">
-                    <span className="flex items-center gap-3">
+                    <span>
                       {image.source === "library"
                         ? `Meme template${image.title ? `: ${image.title}` : ""}`
                         : `Uploaded by ${label(image.user_id, image.profiles)}`}
-                      {image.user_id && canDelete(image.user_id) && (
-                        <DeleteButton
-                          action={deleteImage.bind(null, image.id, true)}
-                          confirmText={`Delete this photo and ${count === 1 ? "its caption" : count > 1 ? `all ${count} captions` : "it"}?`}
-                          label="Delete photo"
-                        />
-                      )}
                     </span>
-                    <Link href={`/images/${image.id}`} className="nav-link">
-                      <PixelIcon name={count > 1 ? "bubble" : "plus"} size={14} />
-                      {count > 1 ? `See all ${count} captions` : "Add a caption"}
-                    </Link>
+                    <span className="flex items-center gap-4">
+                      {/* The icon is the button (same style as the gear); the
+                          words beside it are part of the same link */}
+                      <Link href={`/images/${image.id}`} className="group inline-flex items-center gap-2">
+                        <span className="btn-secondary size-9">
+                          <PixelIcon name={count > 1 ? "bubble" : "plus"} size={16} />
+                        </span>
+                        <span className="group-hover:text-ink">
+                          {count > 1 ? `See all ${count} captions` : "Add a caption"}
+                        </span>
+                      </Link>
+                      <ActionsMenu items={actions} />
+                    </span>
                   </div>
                 </div>
               </li>

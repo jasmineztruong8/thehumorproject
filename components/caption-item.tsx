@@ -1,9 +1,10 @@
 import { deleteCaption } from "@/app/actions";
 import type { Caption } from "@/lib/captions";
-import { DeleteButton } from "@/components/delete-button";
+import { ActionsMenu } from "@/components/actions-menu";
 import { VoteButtons } from "@/components/vote-buttons";
 
-// One caption with its vote arrows, author and (for its owner) a delete link.
+// One caption with its vote arrows, author and (for its owner) a gear menu
+// with "Delete caption".
 export function CaptionItem({
   caption,
   author,
@@ -34,15 +35,22 @@ export function CaptionItem({
               about: {caption.user_prompt}
             </span>
           )}
-          {canDelete && (
-            <DeleteButton
-              action={deleteCaption.bind(null, caption.id)}
-              confirmText="Delete this caption? Its votes will be removed too. The photo stays."
-              label="Delete caption"
-            />
-          )}
         </div>
       </div>
+      {canDelete && (
+        // Bottom-right corner, like the gear on feed cards
+        <div className="self-end">
+          <ActionsMenu
+          items={[
+            {
+              label: "Delete caption",
+              confirmText: "Delete this caption? Its votes will be removed too. The photo stays.",
+              action: deleteCaption.bind(null, caption.id),
+            },
+            ]}
+          />
+        </div>
+      )}
     </div>
   );
 }
