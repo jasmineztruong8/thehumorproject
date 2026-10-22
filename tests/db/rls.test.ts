@@ -185,7 +185,8 @@ describe("signed-in users", () => {
   });
 
   it("cannot edit captions or scores, even their own", async () => {
-    expect(await affected(bob, `update public.captions set score = 999, content = 'edited' where id = $1`, [bobCaption])).toBe(0);
+    expect(await affected(bob, `update public.captions set content = 'edited' where id = $1`, [bobCaption])).toBe(0);
+    await denied(bob, `update public.captions set score = 999 where id = $1`, [bobCaption]);
   });
 
   it("cannot delete other people's content", async () => {
@@ -249,6 +250,46 @@ describe("superadmins", () => {
       alice.id,
       bobCaption,
     ]);
+  });
+
+  it("can read everyone's votes", async () => {
+    await as(db, admin, async (tx) => {
+      expect(await count(tx, "select * from public.caption_votes")).toBe(1);
+    });
+  });
+
+  it("can edit image and caption text", async () => {
+    expect(await affected(admin, `update public.images set title = 'Fixed', description = 'a dog' where id = $1`, [aliceImage])).toBe(1);
+    expect(await affected(admin, `update public.captions set content = 'funnier' where id = $1`, [aliceCaption])).toBe(1);
+  });
+
+  it("cannot change scores, owners or prompts", async () => {
+    await denied(admin, `update public.captions set score = 100 where id = $1`, [aliceCaption]);
+    await denied(admin, `update public.captions set user_id = $2 where id = $1`, [aliceCaption, bob.id]);
+    await denied(admin, `update public.images set description_model = 'x' where id = $1`, [aliceImage]);
+  });
+});
+
+describe("editing media", () => {
+  it("is not allowed for regular users, even on their own content", async () => {
+    expect(await affected(alice, `update public.captions set content = 'edited' where id = $1`, [aliceCaption])).toBe(0);
+    expect(await affected(alice, `update public.images set title = 'edited' where id = $1`, [aliceImage])).toBe(0);
+  });
+
+  it("is not allowed for anonymous users with the flag set", async () => {
+    await db.query(`update public.profiles set is_superadmin = true where id = $1`, [ghost.id]);
+    try {
+      expect(await affected(ghost, `update public.captions set content = 'x' where id = $1`, [aliceCaption])).toBe(0);
+      await as(db, ghost, async (tx) => {
+        expect(await count(tx, "select * from public.caption_votes")).toBe(0);
+      });
+    } finally {
+      await db.query(`update public.profiles set is_superadmin = false where id = $1`, [ghost.id]);
+    }
+  });
+
+  it("is denied for signed-out visitors", async () => {
+    await denied("anon", `update public.captions set content = 'x' where id = $1`, [aliceCaption]);
   });
 });
 
