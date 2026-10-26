@@ -17,9 +17,14 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <p className="text-dim">
         Sign in to upload photos, generate captions and vote.
       </p>
-      {error && (
+      {error === "not_allowed" ? (
+        <p className="text-danger">
+          New sign-ups are limited to approved email addresses right now, and
+          this Google account isn&apos;t on the list.
+        </p>
+      ) : error ? (
         <p className="text-danger">Sign-in didn&apos;t work. Please try again.</p>
-      )}
+      ) : null}
       <GoogleSignInButton />
     </main>
   );

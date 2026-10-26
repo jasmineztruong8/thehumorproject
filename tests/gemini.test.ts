@@ -114,6 +114,45 @@ describe("model fallback", () => {
   });
 });
 
+describe("models and attempts from the admin panel", () => {
+  it("tries the given models in order", async () => {
+    respond = (call) => (call.model === "first" ? apiError(503) : { text: "ok" });
+    await writeCaption("A cat.", null, { models: ["first", "second"] });
+    expect(calls.map((c) => c.model)).toEqual(["first", "second"]);
+  });
+
+  it("uses the built-in models when given an empty list", async () => {
+    await writeCaption("A cat.", null, { models: [] });
+    expect(calls[0].model).toBe("gemini-3-flash-preview");
+  });
+
+  it("records every attempt, with the answer on the one that worked", async () => {
+    const attempts: import("@/lib/gemini").Attempt[] = [];
+    respond = (call) => (call.model === "a" ? apiError(429) : { text: "the caption" });
+    await writeCaption("A cat.", null, { models: ["a", "b"], attempts });
+    expect(attempts).toEqual([
+      expect.objectContaining({ model: "a", status: "quota", httpStatus: 429 }),
+      expect.objectContaining({ model: "b", status: "ok", httpStatus: 200, output: "the caption" }),
+    ]);
+  });
+
+  it("records attempts even when every model fails", async () => {
+    const attempts: import("@/lib/gemini").Attempt[] = [];
+    respond = () => apiError(400);
+    await expect(writeCaption("A cat.", null, { models: ["a"], attempts })).rejects.toThrow("HTTP 400");
+    expect(attempts).toEqual([expect.objectContaining({ model: "a", status: "error", httpStatus: 400 })]);
+  });
+
+  it("sends examples and terms only when given context", async () => {
+    const caption = await writeCaption("A cat.", null, {
+      context: { examples: [{ image_description: "A dog.", caption: "woof" }], terms: [] },
+    });
+    expect(calls[0].contents).toContain("A dog. → woof");
+    expect(calls[0].config!.systemInstruction).toContain("never copy an example");
+    expect(caption.prompt).toContain("A dog. → woof");
+  });
+});
+
 describe("describeImage", () => {
   const solid = (r: number) =>
     sharp({ create: { width: 16, height: 16, channels: 3, background: { r, g: 0, b: 0 } } }).png().toBuffer();

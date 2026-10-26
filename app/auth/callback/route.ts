@@ -25,5 +25,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth`);
+  // Supabase reports a sign-up blocked by the allowed domains / whitelisted
+  // emails check (private.check_signup_allowed) as a database error.
+  const blocked = /database error saving new user/i.test(searchParams.get("error_description") ?? "");
+  return NextResponse.redirect(`${origin}/login?error=${blocked ? "not_allowed" : "auth"}`);
 }

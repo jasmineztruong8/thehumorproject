@@ -2,9 +2,13 @@
 
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { AiUnavailableError, describeImage, writeCaption } from "@/lib/gemini";
-import { cleanSteer } from "@/lib/prompts";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { AiUnavailableError, describeImage, writeCaption, type Attempt } from "@/lib/gemini";
+import { DESCRIBE_PROMPT, buildCaptionRequest, cleanSteer } from "@/lib/prompts";
+import { DEFAULT_CONFIG, contextFor, loadAiConfig, pickChain } from "@/lib/ai-config";
+import { writeGenerationLog, type GenerationLog } from "@/lib/ai-log";
 import { readDraft, signDraft, type CaptionDraft, type DraftCaption, type UploadDraft } from "@/lib/drafts";
 import { addToLibrary } from "@/lib/library";
 import { getMemeTemplate, searchMemeTemplates, type MemeTemplate } from "@/lib/memegen";
@@ -160,6 +164,35 @@ function aiErrorMessage(e: unknown) {
   return "Something went wrong with the AI. Please try again.";
 }
 
+// The admin panel's AI settings (models, chain mix, examples). They're
+// superadmin-only in RLS, so they're read with the service role. Any problem
+// falls back to the built-in defaults so captions keep working.
+async function aiConfig() {
+  try {
+    return await loadAiConfig(createAdminClient());
+  } catch (e) {
+    console.error("Loading AI config failed", e);
+    return DEFAULT_CONFIG;
+  }
+}
+
+// Logs an AI request for the admin panel once the response has been sent, so
+// it never slows down or breaks the user's request. Users can't write the
+// log themselves (RLS); the server writes it with the service role.
+function logAiRequest(log: Omit<GenerationLog, "app">) {
+  after(async () => {
+    try {
+      await writeGenerationLog(createAdminClient(), { ...log, app: "site" });
+    } catch (e) {
+      console.error("Writing the AI request log failed", e);
+    }
+  });
+}
+
+function errorText(e: unknown) {
+  return e instanceof Error ? e.message : String(e);
+}
+
 function captionRow(imageId: string, userId: string, caption: DraftCaption) {
   return {
     image_id: imageId,
@@ -171,8 +204,11 @@ function captionRow(imageId: string, userId: string, caption: DraftCaption) {
   };
 }
 
-// Asks the AI for a caption suggestion. Nothing is saved.
+// Asks the AI for a caption suggestion. Nothing is posted; the request is
+// logged for the admin panel. imageId is null while the upload is a draft.
 async function suggest(
+  userId: string,
+  imageId: string | null,
   description: string,
   rawSteer: unknown,
   suggestionsSoFar: number,
@@ -181,10 +217,27 @@ async function suggest(
     return { error: "That's a lot of tries! Post one you like or start over." };
   }
   const steer = cleanSteer(rawSteer);
+  const config = await aiConfig();
+  const chain = pickChain(config.chains);
+  const context = contextFor(chain, config);
+  const attempts: Attempt[] = [];
+  const log = {
+    userId,
+    kind: "caption" as const,
+    chainId: chain.id,
+    imageId,
+    steer,
+    prompt: buildCaptionRequest(description, steer, context).fullPrompt,
+    attempts,
+    startedAt: Date.now(),
+    modelIds: config.modelIds,
+  };
   try {
-    const caption = await writeCaption(description, steer);
+    const caption = await writeCaption(description, steer, { models: config.models, attempts, context });
+    logAiRequest(log);
     return { caption: { ...caption, steer } };
   } catch (e) {
+    logAiRequest({ ...log, error: errorText(e) });
     return { error: aiErrorMessage(e) };
   }
 }
@@ -221,15 +274,33 @@ export async function startUpload(storagePath: string): Promise<DraftResult> {
     .download(storagePath);
   if (downloadError || !file) return fail("Couldn't find your upload. Please try again.");
 
+  const config = await aiConfig();
+  const attempts: Attempt[] = [];
+  const log = {
+    userId: user.id,
+    kind: "describe" as const,
+    chainId: null,
+    imageId: null,
+    steer: null,
+    prompt: DESCRIBE_PROMPT,
+    attempts,
+    startedAt: Date.now(),
+    modelIds: config.modelIds,
+  };
   let described;
   try {
-    described = await describeImage({
-      data: Buffer.from(await file.arrayBuffer()),
-      mimeType: storagePath.endsWith(".gif") ? "image/gif" : "image/jpeg",
-    });
+    described = await describeImage(
+      {
+        data: Buffer.from(await file.arrayBuffer()),
+        mimeType: storagePath.endsWith(".gif") ? "image/gif" : "image/jpeg",
+      },
+      { models: config.models, attempts },
+    );
   } catch (e) {
+    logAiRequest({ ...log, error: errorText(e) });
     return fail(aiErrorMessage(e));
   }
+  logAiRequest({ ...log, prompt: described.prompt });
 
   const draft: UploadDraft = {
     kind: "upload",
@@ -252,7 +323,7 @@ export async function suggestUploadCaption(token: string, steer: string): Promis
   const draft = readDraft(token, "upload", user.id);
   if (!draft) return { error: "This draft expired. Please upload the photo again." };
 
-  const result = await suggest(draft.description, steer, draft.suggestions);
+  const result = await suggest(user.id, null, draft.description, steer, draft.suggestions);
   if ("error" in result) return result;
 
   const next: UploadDraft = { ...draft, caption: result.caption, suggestions: draft.suggestions + 1 };
@@ -331,7 +402,7 @@ export async function suggestCaption(
     .maybeSingle();
   if (!image) return { error: "That image doesn't exist anymore." };
 
-  const result = await suggest(image.description, steer, suggestions);
+  const result = await suggest(user.id, image.id, image.description, steer, suggestions);
   if ("error" in result) return result;
 
   const draft: CaptionDraft = {

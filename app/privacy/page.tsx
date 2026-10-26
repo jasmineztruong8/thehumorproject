@@ -15,7 +15,10 @@ export default function PrivacyPage() {
         Storage and are publicly viewable by URL. To write captions, uploaded
         photos are sent to Google Gemini, which describes them; the
         description, the prompts and the captions are saved with the photo.
-        Deleting your account deletes all of it. We don&apos;t sell or share
+        Each request to the AI (including caption suggestions you didn&apos;t
+        post and any topic you typed) is also logged with your account, so
+        the site&apos;s admins can see how the AI is doing. Deleting your
+        account deletes all of it. We don&apos;t sell or share
         your data.
       </p>
     </main>

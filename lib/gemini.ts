@@ -2,17 +2,19 @@ import "server-only";
 import { GoogleGenAI } from "@google/genai";
 import { framesForModel } from "@/lib/media";
 import {
-  CAPTION_SYSTEM_INSTRUCTION,
   DESCRIBE_PROMPT,
-  buildCaptionPrompt,
+  buildCaptionRequest,
   describeGifPrompt,
   cleanCaption,
+  type CaptionContext,
 } from "@/lib/prompts";
 
 // Server-only: the API key must never reach the browser.
 // The free tier allows only ~20 requests per day *per model* and models get
 // overloaded (503) at busy times, so work through several free models.
-const MODELS = [
+// The admin panel can change the list (llm_models); this is the fallback
+// when that isn't available.
+export const DEFAULT_MODELS = [
   ...new Set([
     process.env.GEMINI_MODEL || "gemini-3-flash-preview",
     "gemini-flash-latest",
@@ -32,6 +34,23 @@ export class AiUnavailableError extends Error {
 
 type Request = Omit<Parameters<GoogleGenAI["models"]["generateContent"]>[0], "model">;
 
+// One model call, for the request log (llm_responses).
+export type Attempt = {
+  model: string;
+  status: "ok" | "quota" | "busy" | "timeout" | "not_found" | "error";
+  httpStatus: number | null;
+  error: string | null;
+  latencyMs: number;
+  output?: string;
+};
+
+export type AiOptions = {
+  // Models to try, in order. Defaults to DEFAULT_MODELS.
+  models?: string[];
+  // Filled in with every model call, even when the request fails.
+  attempts?: Attempt[];
+};
+
 // Vercel stops a request after 60s; leave ~10s for the rest of the request.
 const TIME_BUDGET_MS = 50_000;
 const CALL_TIMEOUT_MS = 30_000; // a normal answer takes 2-8s
@@ -41,7 +60,7 @@ const QUOTA_SKIP_MS = 60 * 60 * 1000;
 // skip them for a while instead of asking again.
 const outOfQuotaUntil = new Map<string, number>();
 
-async function generate(request: Request) {
+async function generate(request: Request, { models = DEFAULT_MODELS, attempts = [] }: AiOptions) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
   const ai = new GoogleGenAI({ apiKey });
@@ -63,12 +82,25 @@ async function generate(request: Request) {
         config: { ...request.config, httpOptions: { timeout: Math.min(CALL_TIMEOUT_MS, remaining) } },
       });
       console.info(`[gemini] ${model} answered in ${Date.now() - started}ms`);
+      attempts.push({ model, status: "ok", httpStatus: 200, error: null, latencyMs: Date.now() - started });
       return { response, model: response.modelVersion ?? model };
     } catch (e) {
       const status = (e as { status?: number }).status ?? 0;
       const message = String((e as Error).message ?? e);
       const timedOut = !status && /abort|timeout|timed out/i.test(message);
       console.warn(`[gemini] ${model} failed after ${Date.now() - started}ms: ${status || "no status"} ${message.slice(0, 200)}`);
+      attempts.push({
+        model,
+        status:
+          status === 429 ? "quota"
+          : timedOut ? "timeout"
+          : status >= 500 ? "busy"
+          : status === 404 ? "not_found"
+          : "error",
+        httpStatus: status || null,
+        error: message.slice(0, 300),
+        latencyMs: Date.now() - started,
+      });
       if (status === 429) {
         sawQuota = true;
         outOfQuotaUntil.set(model, Date.now() + QUOTA_SKIP_MS);
@@ -81,7 +113,8 @@ async function generate(request: Request) {
     }
   };
 
-  const available = MODELS.filter((m) => (outOfQuotaUntil.get(m) ?? 0) < Date.now());
+  const list = [...new Set(models.length ? models : DEFAULT_MODELS)];
+  const available = list.filter((m) => (outOfQuotaUntil.get(m) ?? 0) < Date.now());
   for (const model of available) {
     const result = await attempt(model);
     if (result) return result;
@@ -97,6 +130,11 @@ async function generate(request: Request) {
   throw new AiUnavailableError(allOutOfQuota ? "quota" : "busy");
 }
 
+function recordOutput(options: AiOptions, text: string | undefined) {
+  const last = options.attempts?.at(-1);
+  if (last?.status === "ok") last.output = text ?? "";
+}
+
 // For tests: forget which models were out of quota.
 export function resetModelState() {
   outOfQuotaUntil.clear();
@@ -105,7 +143,7 @@ export function resetModelState() {
 // Step 1: look at the image once and describe it. The description is saved
 // with the image and reused for every caption, so later captions are text-only.
 // Animated GIFs are sent as a few frames so the description covers the motion.
-export async function describeImage(file: { data: Buffer; mimeType: string }) {
+export async function describeImage(file: { data: Buffer; mimeType: string }, options: AiOptions = {}) {
   const { images, animated } = await framesForModel(file.data, file.mimeType);
   const prompt = animated ? describeGifPrompt(images.length) : DESCRIBE_PROMPT;
   const { response, model } = await generate({
@@ -115,25 +153,32 @@ export async function describeImage(file: { data: Buffer; mimeType: string }) {
       })),
       { text: prompt },
     ],
-  });
+  }, options);
   const description = response.text?.trim();
+  recordOutput(options, response.text);
   if (!description) throw new Error("Empty description");
   return { description, prompt, model, animated };
 }
 
 // Step 2: write a caption from the saved description (plus an optional topic).
-export async function writeCaption(description: string, steer: string | null) {
-  const prompt = buildCaptionPrompt(description, steer);
+// The "with-examples" chain passes example captions and terms as context.
+export async function writeCaption(
+  description: string,
+  steer: string | null,
+  options: AiOptions & { context?: CaptionContext } = {},
+) {
+  const { systemInstruction, prompt, fullPrompt } = buildCaptionRequest(description, steer, options.context);
   const { response, model } = await generate({
     contents: prompt,
-    config: { systemInstruction: CAPTION_SYSTEM_INSTRUCTION, temperature: 1.1 },
-  });
+    config: { systemInstruction, temperature: 1.1 },
+  }, options);
+  recordOutput(options, response.text);
   const content = cleanCaption(response.text ?? "");
   if (!content) throw new Error("Empty caption");
   return {
     content,
     // Save exactly what was sent: the system instruction and the prompt
-    prompt: `${CAPTION_SYSTEM_INSTRUCTION}\n\n---\n\n${prompt}`,
+    prompt: fullPrompt,
     model,
   };
 }

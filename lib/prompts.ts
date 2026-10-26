@@ -51,3 +51,38 @@ export function cleanCaption(raw: string) {
     .trim()
     .slice(0, MAX_CAPTION_LENGTH);
 }
+
+// Context for the "with-examples" prompt chain: captions people loved and
+// campus terms, managed in the admin panel.
+export type CaptionContext = {
+  examples: { image_description: string; caption: string }[];
+  terms: { term: string; definition: string }[];
+};
+
+export const EXAMPLES_INSTRUCTION =
+  "- Example captions people loved and campus terms are included. Match their tone and use the terms where they fit, but never copy an example.";
+
+export function buildExamplesBlock({ examples, terms }: CaptionContext): string | null {
+  const flat = (text: string) => text.replace(/\s+/g, " ").trim();
+  const sections = [];
+  if (examples.length) {
+    sections.push(
+      `Example captions (description → caption):\n${examples
+        .map((e) => `- ${flat(e.image_description)} → ${flat(e.caption)}`)
+        .join("\n")}`,
+    );
+  }
+  if (terms.length) {
+    sections.push(`Campus terms:\n${terms.map((t) => `- ${flat(t.term)}: ${flat(t.definition)}`).join("\n")}`);
+  }
+  return sections.length ? sections.join("\n\n") : null;
+}
+
+// Everything sent for one caption: the system instruction, the prompt, and
+// both together (what's saved with the caption).
+export function buildCaptionRequest(description: string, steer: string | null, context?: CaptionContext) {
+  const examples = context ? buildExamplesBlock(context) : null;
+  const systemInstruction = examples ? `${CAPTION_SYSTEM_INSTRUCTION}\n${EXAMPLES_INSTRUCTION}` : CAPTION_SYSTEM_INSTRUCTION;
+  const prompt = examples ? `${examples}\n\n${buildCaptionPrompt(description, steer)}` : buildCaptionPrompt(description, steer);
+  return { systemInstruction, prompt, fullPrompt: `${systemInstruction}\n\n---\n\n${prompt}` };
+}
