@@ -197,14 +197,18 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                     </span>
                     <span className="flex items-center gap-4">
                       {/* The icon is the button (same style as the gear); the
-                          words beside it are part of the same link */}
-                      <Link href={`/images/${image.id}`} className="group inline-flex items-center gap-2">
+                          words beside it, when shown, are part of the same link */}
+                      <Link
+                        href={`/images/${image.id}`}
+                        className="group inline-flex items-center gap-2"
+                        aria-label={count > 1 ? undefined : "Add a caption"}
+                      >
                         <span className="btn-secondary size-9">
                           <PixelIcon name={count > 1 ? "bubble" : "plus"} size={16} />
                         </span>
-                        <span className="group-hover:text-ink">
-                          {count > 1 ? `See all ${count} captions` : "Add a caption"}
-                        </span>
+                        {count > 1 && (
+                          <span className="group-hover:text-ink">See all {count} captions</span>
+                        )}
                       </Link>
                       <ActionsMenu items={actions} />
                     </span>
